@@ -1,0 +1,1092 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>keepr</title>
+<style>
+:root {
+  --bg: #f6f6f4; --panel: #ffffff; --panel-2: #f0efec; --line: #e2e0db; --text: #1f1f1d; --muted: #6d6b66;
+  --accent: #5b5bd6; --accent-soft: #ececfb; --ok: #2f8f5b; --warn: #c27a12; --bad: #c4423c; --info: #2f6fb7;
+  --radius: 10px; --shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 14px rgba(0,0,0,.04);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161615; --panel: #1f1f1d; --panel-2: #272725; --line: #34332f; --text: #ecebe7; --muted: #9a9890;
+    --accent: #8b8bf0; --accent-soft: #2b2b45; --ok: #5cc38b; --warn: #e3a64a; --bad: #ec746d; --info: #6ea8ea;
+    --shadow: none; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #161615; --panel: #1f1f1d; --panel-2: #272725; --line: #34332f; --text: #ecebe7; --muted: #9a9890;
+  --accent: #8b8bf0; --accent-soft: #2b2b45; --ok: #5cc38b; --warn: #e3a64a; --bad: #ec746d; --info: #6ea8ea;
+  --shadow: none; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: var(--accent); }
+
+/* layout */
+.app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+header { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
+.brand { font-weight: 700; letter-spacing: -.01em; display: flex; align-items: center; gap: 8px; }
+.brand .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.brand .dot.live { background: var(--ok); }
+.tabs { display: flex; gap: 2px; background: var(--panel-2); padding: 3px; border-radius: 8px; }
+.tabs button { border: 0; background: transparent; padding: 5px 12px; border-radius: 6px; color: var(--muted); }
+.tabs button.on { background: var(--panel); color: var(--text); box-shadow: var(--shadow); font-weight: 600; }
+.tabs .count { font-size: 11px; color: var(--muted); margin-left: 4px; }
+.spacer { flex: 1; }
+.search { width: 220px; max-width: 100%; }
+main { overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+
+.input, select.input, textarea.input { background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 6px 9px; outline: none; }
+.input:focus { border-color: var(--accent); }
+.btn { text-decoration: none; border: 1px solid var(--line); background: var(--panel); border-radius: 7px; padding: 5px 11px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--muted); }
+.btn.ghost:hover { color: var(--text); background: var(--panel-2); }
+.btn.danger { color: var(--bad); }
+.btn.sm { padding: 2px 8px; font-size: 12px; }
+
+.chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; padding: 1px 8px; border-radius: 999px; background: var(--panel-2); color: var(--muted); white-space: nowrap; }
+.chip.tag { background: var(--accent-soft); color: var(--accent); }
+.chip.link { cursor: pointer; }
+.id { font: 600 11.5px ui-monospace, SFMono-Regular, monospace; color: var(--muted); }
+.muted { color: var(--muted); }
+.empty { color: var(--muted); padding: 40px; text-align: center; }
+
+/* status colors */
+[data-s="todo"] { --s: var(--muted); } [data-s="in_progress"] { --s: var(--info); }
+[data-s="review"] { --s: var(--warn); } [data-s="done"] { --s: var(--ok); }
+[data-s="open"] { --s: var(--info); } [data-s="followup"] { --s: var(--warn); }
+[data-s="clarified"] { --s: var(--ok); } [data-s="dropped"] { --s: var(--muted); }
+.sdot { width: 9px; height: 9px; border-radius: 50%; background: var(--s); display: inline-block; flex: none; }
+.prio { font-size: 12px; font-weight: 700; }
+.prio.urgent { color: var(--bad); } .prio.high { color: var(--warn); } .prio.normal { color: var(--muted); } .prio.low { color: var(--muted); opacity: .6; }
+.overdue { color: var(--bad); font-weight: 600; }
+
+/* toolbar */
+.toolbar { display: flex; gap: 8px; align-items: center; padding: 10px 16px; flex-wrap: wrap; }
+.seg { display: flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+.seg button { border: 0; background: var(--panel); padding: 4px 10px; color: var(--muted); border-right: 1px solid var(--line); }
+.seg button:last-child { border-right: 0; }
+.seg button.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+/* answers */
+.split { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; flex: 1; min-height: 0; border-top: 1px solid var(--line); }
+.alist { overflow: auto; border-right: 1px solid var(--line); background: var(--panel); }
+.aitem { padding: 11px 16px; border-bottom: 1px solid var(--line); cursor: pointer; display: grid; gap: 4px; }
+.aitem:hover { background: var(--panel-2); }
+.aitem.sel { background: var(--accent-soft); box-shadow: inset 3px 0 var(--accent); }
+.aitem .top { display: flex; gap: 8px; align-items: center; }
+.aitem .title { font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aitem .sum { color: var(--muted); font-size: 13px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.aitem .meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12px; }
+.adetail { overflow: auto; padding: 22px 28px 60px; }
+.adetail .head { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+.title-edit { font-size: 20px; font-weight: 700; border: 1px solid transparent; background: transparent; border-radius: 6px; padding: 2px 6px; margin-left: -7px; flex: 1; min-width: 200px; }
+.title-edit:hover, .title-edit:focus { border-color: var(--line); background: var(--panel); outline: none; }
+.actions { display: flex; gap: 6px; flex-wrap: wrap; margin: 12px 0 18px; }
+.section { margin-top: 22px; }
+.section > h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; display: flex; align-items: center; gap: 8px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 18px; box-shadow: var(--shadow); }
+.prompt { background: var(--panel-2); border-radius: var(--radius); padding: 10px 14px; white-space: pre-wrap; color: var(--muted); max-height: 160px; overflow: auto; }
+
+/* checklist */
+.check { display: flex; gap: 10px; align-items: flex-start; padding: 6px 4px; border-radius: 6px; }
+.check:hover { background: var(--panel-2); }
+.check input[type=checkbox] { margin-top: 3px; accent-color: var(--accent); width: 15px; height: 15px; flex: none; }
+.check .txt { flex: 1; }
+.check.done .txt { color: var(--muted); text-decoration: line-through; }
+.check .acts { display: flex; gap: 4px; opacity: 0; }
+.check:hover .acts { opacity: 1; }
+.add-row { display: flex; gap: 6px; margin-top: 6px; }
+.add-row .input { flex: 1; min-width: 0; }
+
+/* markdown */
+.md { overflow-wrap: anywhere; }
+.md > :first-child { margin-top: 0; } .md > :last-child { margin-bottom: 0; }
+.md h1, .md h2, .md h3, .md h4 { margin: 1.1em 0 .4em; line-height: 1.3; }
+.md h1 { font-size: 1.35em; } .md h2 { font-size: 1.2em; } .md h3 { font-size: 1.05em; }
+.md code { font: 12.5px ui-monospace, SFMono-Regular, monospace; background: var(--panel-2); padding: 1px 5px; border-radius: 4px; }
+.md pre { background: var(--panel-2); padding: 12px; border-radius: 8px; overflow: auto; }
+.md pre code { background: none; padding: 0; }
+.md blockquote { border-left: 3px solid var(--line); margin: 0; padding-left: 12px; color: var(--muted); }
+.md table { border-collapse: collapse; margin: .6em 0; display: block; overflow: auto; }
+.md th, .md td { border: 1px solid var(--line); padding: 4px 10px; text-align: left; }
+.md th { background: var(--panel-2); }
+.md ul, .md ol { padding-left: 1.4em; }
+
+/* tasks: board */
+.board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(260px, 1fr); gap: 12px; padding: 4px 16px 16px; overflow: auto; flex: 1; min-height: 0; }
+.col { background: var(--panel-2); border-radius: var(--radius); display: flex; flex-direction: column; min-height: 0; }
+.col-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px 6px; font-weight: 600; font-size: 13px; }
+.col-head .n { color: var(--muted); font-weight: 500; }
+.col-body { padding: 4px 8px 8px; overflow: auto; flex: 1; display: flex; flex-direction: column; gap: 8px; min-height: 60px; }
+.col.over { outline: 2px dashed var(--accent); outline-offset: -2px; }
+.tcard { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; cursor: pointer; display: grid; gap: 6px; box-shadow: var(--shadow); }
+.tcard:hover { border-color: var(--muted); }
+.tcard.dragging { opacity: .4; }
+.tcard .t { font-weight: 550; }
+.tcard .meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--muted); }
+.progress { height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.progress > i { display: block; height: 100%; background: var(--ok); }
+.quick { border: 1px dashed var(--line); background: transparent; border-radius: 8px; padding: 6px; color: var(--muted); text-align: left; }
+.quick:hover { color: var(--text); border-color: var(--muted); }
+
+/* tasks: list */
+.tlist { overflow: auto; padding: 0 16px 24px; flex: 1; }
+.group { margin-top: 14px; }
+.group-head { display: flex; align-items: center; gap: 8px; font-weight: 600; padding: 6px 2px; }
+.trow { display: grid; grid-template-columns: 54px 1fr 130px 100px 110px 70px; align-items: center; gap: 10px; padding: 7px 10px; background: var(--panel); border: 1px solid var(--line); border-top: 0; cursor: pointer; }
+.trow:first-of-type { border-top: 1px solid var(--line); border-radius: 8px 8px 0 0; }
+.trow:last-child { border-radius: 0 0 8px 8px; }
+.trow:only-of-type { border-radius: 8px; }
+.trow:hover { background: var(--panel-2); }
+.trow .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trow select { border: 0; background: transparent; padding: 0; }
+.thead { display: grid; grid-template-columns: 54px 1fr 130px 100px 110px 70px; gap: 10px; padding: 4px 10px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+
+/* drawer */
+.drawer-bg { position: fixed; inset: 0; background: rgba(0,0,0,.25); display: none; z-index: 10; }
+.drawer-bg.open { display: block; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(620px, 100vw); background: var(--bg); border-left: 1px solid var(--line); z-index: 11; transform: translateX(100%); transition: transform .18s ease; overflow: auto; padding: 18px 24px 60px; }
+.drawer.open { transform: none; }
+.props { display: grid; grid-template-columns: 110px 1fr; gap: 8px 12px; align-items: center; margin: 14px 0; }
+.props label { color: var(--muted); font-size: 13px; }
+textarea.desc { width: 100%; min-height: 120px; resize: vertical; }
+.comment { padding: 8px 12px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); margin-bottom: 6px; }
+.comment.ai { border-left: 3px solid var(--accent); }
+.comment .who { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+
+.toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; }
+.toast.show { opacity: 1; }
+
+/* references (T5, A3, I2) */
+a.ref { font: 600 12px ui-monospace, SFMono-Regular, monospace; text-decoration: none; background: var(--accent-soft); padding: 0 5px; border-radius: 4px; }
+a.ref.done { text-decoration: line-through; opacity: .7; }
+.editable { cursor: text; min-height: 40px; }
+.editable:hover { border-color: var(--muted); }
+
+/* subtasks */
+.check .sub-st { font-size: 11px; }
+.sub-desc { margin: -2px 0 4px 54px; font-size: 12.5px; color: var(--muted); }
+.sub-desc .md p { margin: 0; }
+.sub-edit { margin: 0 0 8px 29px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); display: grid; gap: 6px; }
+.sub-edit .row { display: flex; gap: 6px; }
+.sub-edit .row .input:first-child { flex: 1; }
+.sub-edit textarea { min-height: 70px; resize: vertical; }
+
+/* links */
+.chip.blocked { background: color-mix(in srgb, var(--bad) 15%, transparent); color: var(--bad); }
+#l-add select { flex: none; }
+
+/* inbox */
+.capture { display: flex; gap: 6px; flex: 1; max-width: 520px; }
+.capture .input { flex: 1; }
+
+/* pomodoro */
+.pomo-btn { font-variant-numeric: tabular-nums; }
+.pomo-btn.running[data-m="focus"] { color: var(--bad); border-color: var(--bad); }
+.pomo-btn.running:not([data-m="focus"]) { color: var(--ok); border-color: var(--ok); }
+.pomo-pop { position: fixed; top: 52px; right: 16px; width: min(320px, calc(100vw - 32px)); background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 8px 30px rgba(0,0,0,.18); padding: 14px; z-index: 15; display: grid; gap: 10px; }
+.pomo-pop[hidden] { display: none; }
+.pomo-time { font: 700 44px/1 ui-monospace, SFMono-Regular, monospace; text-align: center; font-variant-numeric: tabular-nums; }
+.pomo-pop > * { min-width: 0; }
+.pomo-pop .seg button { flex: 1; padding: 4px 6px; }
+.pomo-pop select { width: 100%; }
+.pomo-pop .row { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+.pomo-dots { text-align: center; color: var(--muted); font-size: 12px; letter-spacing: 2px; }
+.pomo-cfg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; font-size: 11px; color: var(--muted); }
+.pomo-cfg .input { width: 100%; padding: 3px 6px; }
+
+@media (max-width: 760px) {
+  .split { grid-template-columns: 1fr; }
+  .split.has-sel .alist { display: none; }
+  .split:not(.has-sel) .adetail { display: none; }
+  .adetail { padding: 16px; }
+  .trow, .thead { grid-template-columns: 44px 1fr 90px; }
+  .trow > :nth-child(n+4), .thead > :nth-child(n+4) { display: none; }
+  .search { width: 100%; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand"><span class="dot" id="live" title="Live connection"></span>keepr</div>
+    <select class="input" id="project"></select>
+    <div class="tabs" id="tabs">
+      <button data-tab="answers">Answers<span class="count" id="c-answers"></span></button>
+      <button data-tab="inbox" title="Things to clarify before they become a task">Inbox<span class="count" id="c-inbox"></span></button>
+      <button data-tab="tasks">Tasks<span class="count" id="c-tasks"></span></button>
+    </div>
+    <div class="spacer"></div>
+    <input class="input search" id="search" placeholder="Search…  ( / )">
+    <button class="btn pomo-btn" id="pomo-btn" title="Pomodoro timer">🍅 25:00</button>
+    <button class="btn ghost" id="theme" title="Light/dark">◐</button>
+  </header>
+  <main id="main"></main>
+</div>
+<div class="drawer-bg" id="drawer-bg"></div>
+<aside class="drawer" id="drawer"></aside>
+<div class="toast" id="toast"></div>
+<div class="pomo-pop" id="pomo-pop" hidden></div>
+
+<script>
+const LABEL = {
+  todo: 'To do', in_progress: 'In progress', review: 'Review', done: 'Done',
+  open: 'Open', followup: 'Follow-up', urgent: 'Urgent', high: 'High', normal: 'Normal', low: 'Low',
+  clarified: 'Clarified', dropped: 'Dropped', relates: 'Related to', blocks: 'Blocks', blocked_by: 'Blocked by',
+};
+const PRIO_MARK = { urgent: '⚑ Urgent', high: '⚑ High', normal: '', low: '↓ Low' };
+
+const ls = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem('keepr.' + k)) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('keepr.' + k, JSON.stringify(v)); } catch {} },
+};
+// One-time move of the settings stored before the rename (wf.* → keepr.*).
+try {
+  for (const k of Object.keys(localStorage)) {
+    if (!k.startsWith('wf.')) continue;
+    if (localStorage.getItem('keepr.' + k.slice(3)) === null) localStorage.setItem('keepr.' + k.slice(3), localStorage.getItem(k));
+    localStorage.removeItem(k);
+  }
+} catch {}
+
+const state = {
+  projects: [], project: null, data: null,
+  tab: ls.get('tab', 'answers'), aFilter: ls.get('aFilter', 'active'), view: ls.get('view', 'board'),
+  showDone: ls.get('showDone', true), sel: null, task: null, q: '',
+  iFilter: ls.get('iFilter', 'open'), isel: null, openSub: null, editing: null,
+};
+
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// ------------------------------------------------------------ markdown (small, good enough)
+// Turns IDs of existing items (T5, A3, I2) into links. Only outside of tags and existing links.
+function linkRefs(html) {
+  const d = state.data;
+  if (!d) return html;
+  let inA = 0;
+  return html.split(/(<[^>]+>)/).map(part => {
+    if (part.startsWith('<')) { if (/^<a[\s>]/.test(part)) inA++; else if (part === '</a>') inA--; return part; }
+    if (inA) return part;
+    return part.replace(/\b([ATI])(\d+)\b/g, (m) => {
+      const kind = m[0], list = kind === 'A' ? d.answers : kind === 'T' ? d.tasks : d.inbox;
+      const x = list.find(y => y.id === m);
+      if (!x) return m;
+      const done = ['done', 'clarified', 'dropped'].includes(x.status);
+      return `<a href="#" class="ref ${done ? 'done' : ''}" data-ref="${m}" title="${esc(x.title)}">${m}</a>`;
+    });
+  }).join('');
+}
+function inline(s, refs = false) {
+  const codes = [];
+  s = s.replace(/`([^`]+)`/g, (_, c) => `\u0000${codes.push(c) - 1}\u0000`);
+  s = esc(s)
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, t, u) => /^(https?:|vscode:|mailto:)/.test(u) ? `<a href="${u}" target="_blank" rel="noreferrer">${t}</a>` : `<span class="chip">${t}</span>`)
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>')
+    .replace(/~~([^~]+)~~/g, '<del>$1</del>');
+  if (refs) s = linkRefs(s);
+  return s.replace(/\u0000(\d+)\u0000/g, (_, i) => `<code>${esc(codes[i])}</code>`);
+}
+function md(src, refs = false) {
+  const lines = String(src || '').replace(/\r/g, '').split('\n');
+  let html = '', i = 0;
+  const isTableSep = (l) => /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(l);
+  const cells = (l) => l.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+  while (i < lines.length) {
+    const l = lines[i];
+    if (/^```/.test(l)) {
+      const buf = []; i++;
+      while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]);
+      i++; html += `<pre><code>${esc(buf.join('\n'))}</code></pre>`; continue;
+    }
+    let m;
+    if ((m = l.match(/^(#{1,6})\s+(.*)/))) { const n = Math.min(m[1].length + 1, 4); html += `<h${n}>${inline(m[2], refs)}</h${n}>`; i++; continue; }
+    if (/^\s*([-*_])\s*\1\s*\1[\s\1]*$/.test(l)) { html += '<hr>'; i++; continue; }
+    if (l.includes('|') && i + 1 < lines.length && isTableSep(lines[i + 1])) {
+      const head = cells(l); i += 2;
+      let rows = '';
+      while (i < lines.length && lines[i].includes('|') && lines[i].trim()) rows += '<tr>' + cells(lines[i++]).map(c => `<td>${inline(c, refs)}</td>`).join('') + '</tr>';
+      html += `<table><thead><tr>${head.map(c => `<th>${inline(c, refs)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>`; continue;
+    }
+    if (/^>\s?/.test(l)) {
+      const buf = [];
+      while (i < lines.length && /^>\s?/.test(lines[i])) buf.push(lines[i++].replace(/^>\s?/, ''));
+      html += `<blockquote>${md(buf.join('\n'), refs)}</blockquote>`; continue;
+    }
+    if (/^\s*([-*+]|\d+[.)])\s+/.test(l)) {
+      const ordered = /^\s*\d/.test(l);
+      const items = [];
+      while (i < lines.length && (/^\s*([-*+]|\d+[.)])\s+/.test(lines[i]) || (/^\s{2,}\S/.test(lines[i]) && items.length))) {
+        const ln = lines[i++];
+        if (/^\s*([-*+]|\d+[.)])\s+/.test(ln) && !/^\s{2,}/.test(ln)) items.push(ln.replace(/^\s*([-*+]|\d+[.)])\s+/, ''));
+        else items[items.length - 1] += '\n' + ln.replace(/^\s{2,4}/, '');
+      }
+      const tag = ordered ? 'ol' : 'ul';
+      html += `<${tag}>${items.map(it => {
+        const [first, ...rest] = it.split('\n');
+        const box = first.match(/^\[([ xX])\]\s+(.*)/);
+        const head = box ? `<input type="checkbox" disabled ${box[1] !== ' ' ? 'checked' : ''}> ${inline(box[2], refs)}` : inline(first, refs);
+        return `<li>${head}${rest.length ? md(rest.join('\n'), refs) : ''}</li>`;
+      }).join('')}</${tag}>`; continue;
+    }
+    if (!l.trim()) { i++; continue; }
+    const buf = [];
+    while (i < lines.length && lines[i].trim() && !/^(```|#{1,6}\s|>|\s*([-*+]|\d+[.)])\s+)/.test(lines[i])
+      && !(lines[i].includes('|') && i + 1 < lines.length && isTableSep(lines[i + 1]))) buf.push(lines[i++]);
+    html += `<p>${buf.map(x => inline(x, refs)).join('<br>')}</p>`;
+  }
+  return html;
+}
+
+// ------------------------------------------------------------ api
+async function api(path) {
+  const r = await fetch(path);
+  if (!r.ok) throw new Error((await r.json()).error);
+  return r.json();
+}
+async function op(name, args) { return opIn(state.project, name, args); }
+async function opIn(project, name, args) {
+  const r = await fetch(`/api/op?p=${encodeURIComponent(project)}`, {
+    method: 'POST', headers: { 'content-type': 'application/json', 'x-keepr': '1' }, body: JSON.stringify({ op: name, args }),
+  });
+  const j = await r.json();
+  if (!r.ok) { toast(j.error); throw new Error(j.error); }
+  if (project === state.project) await load();
+  return j.result;
+}
+async function load() {
+  state.data = await api(`/api/data?p=${encodeURIComponent(state.project)}`);
+  render();
+}
+
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), 1800);
+}
+async function copy(text, msg = 'Copied') {
+  try { await navigator.clipboard.writeText(text); }
+  catch { const ta = document.createElement('textarea'); ta.value = text; document.body.append(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+  toast(msg);
+}
+
+// ------------------------------------------------------------ helpers
+const today = () => new Date().toISOString().slice(0, 10);
+function fmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
+function fmtDue(due) {
+  if (!due) return '';
+  const cls = due < today() ? 'overdue' : '';
+  const d = new Date(due + 'T00:00');
+  return `<span class="${cls}">📅 ${d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span>`;
+}
+const matches = (obj, fields) => !state.q || fields.some(f => String(obj[f] ?? '').toLowerCase().includes(state.q));
+// Links of a task in both directions, like taskLinks() in keepr.mjs.
+function taskLinks(t) {
+  const out = (t.links || []).map(l => ({ id: l.to, rel: l.type }));
+  for (const x of state.data.tasks) for (const l of x.links || [])
+    if (l.to === t.id) out.push({ id: x.id, rel: l.type === 'blocks' ? 'blocked_by' : 'relates' });
+  return out;
+}
+const blockers = (t) => taskLinks(t).filter(l => l.rel === 'blocked_by')
+  .map(l => state.data.tasks.find(x => x.id === l.id)).filter(x => x && x.status !== 'done');
+
+// Markdown that turns into a textarea on click; saved on blur.
+function editableMd(key, value, placeholder) {
+  if (state.editing === key || !value)
+    return `<textarea class="input desc" data-key="${key}" placeholder="${esc(placeholder)}">${esc(value)}</textarea>`;
+  return `<div class="card md editable" data-edit="${key}" title="Click to edit">${md(value, true)}</div>`;
+}
+function bindEditable(root, save) {
+  root.querySelectorAll('[data-edit]').forEach(el => el.onclick = (e) => {
+    if (e.target.closest('a')) return;
+    state.editing = el.dataset.edit; render();
+    const ta = root.querySelector(`textarea[data-key="${el.dataset.edit}"]`) || document.querySelector(`textarea[data-key="${el.dataset.edit}"]`);
+    if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+  });
+  root.querySelectorAll('textarea[data-key]').forEach(ta => {
+    const orig = ta.value;
+    ta.onblur = () => {
+      state.editing = null;
+      Promise.resolve(ta.value !== orig && save(ta.dataset.key, ta.value)).finally(() => render({ force: true }));
+    };
+  });
+}
+
+function vscodeLink(session, prompt) {
+  const p = new URLSearchParams();
+  if (session) p.set('session', session);
+  if (prompt) p.set('prompt', prompt);
+  return `vscode://anthropic.claude-code/open?${p.toString().replace(/\+/g, '%20')}`;
+}
+
+// ------------------------------------------------------------ render
+function render({ force = false } = {}) {
+  if (!state.data) return;
+  const d = state.data;
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === state.tab));
+  $('#c-answers').textContent = d.answers.filter(a => a.status !== 'done').length || '';
+  $('#c-tasks').textContent = d.tasks.filter(t => t.status !== 'done').length || '';
+  $('#c-inbox').textContent = d.inbox.filter(i => i.status === 'open').length || '';
+  ls.set('tab', state.tab);
+  // Don't overwrite a text field in the main area while typing.
+  const typing = $('#main').contains(document.activeElement) && document.activeElement.matches('textarea');
+  if (!typing) {
+    if (state.tab === 'answers') renderAnswers();
+    else if (state.tab === 'inbox') renderInbox();
+    else renderTasks();
+  }
+  if (state.task) renderDrawer(force);
+  pomoPaint(true);
+}
+
+function renderAnswers() {
+  const d = state.data;
+  const f = state.aFilter;
+  const list = d.answers
+    .filter(a => f === 'all' || (f === 'active' ? a.status !== 'done' : a.status === f))
+    .filter(a => matches(a, ['id', 'title', 'summary', 'content', 'prompt', 'notes']) || a.tags.some(t => t.includes(state.q)));
+  const sel = d.answers.find(a => a.id === state.sel);
+  const counts = { active: d.answers.filter(a => a.status !== 'done').length, followup: d.answers.filter(a => a.status === 'followup').length };
+
+  $('#main').innerHTML = `
+    <div class="toolbar">
+      <div class="seg" id="afilter">
+        ${[['active', `Active (${counts.active})`], ['followup', `Follow-up (${counts.followup})`], ['done', 'Done'], ['all', 'All']]
+          .map(([k, l]) => `<button data-f="${k}" class="${f === k ? 'on' : ''}">${l}</button>`).join('')}
+      </div>
+      <div class="spacer"></div>
+      <span class="muted" style="font-size:12px">Save from Claude: <code>/keep</code></span>
+    </div>
+    <div class="split ${sel ? 'has-sel' : ''}">
+      <div class="alist">${list.length ? list.map(answerItem).join('') : `<div class="empty">No answers yet.<br>Say <b>/keep</b> in Claude to save the last answer here.</div>`}</div>
+      <div class="adetail">${sel ? answerDetail(sel) : `<div class="empty">Select an answer</div>`}</div>
+    </div>`;
+
+  $('#afilter').onclick = (e) => { const b = e.target.closest('button'); if (b) { state.aFilter = b.dataset.f; ls.set('aFilter', b.dataset.f); render(); } };
+  document.querySelectorAll('.aitem').forEach(el => el.onclick = () => selectAnswer(el.dataset.id));
+  if (sel) bindAnswerDetail(sel);
+}
+
+function answerItem(a) {
+  const open = a.points.filter(p => !p.done).length;
+  const tasks = state.data.tasks.filter(t => t.answerId === a.id);
+  return `<div class="aitem ${a.id === state.sel ? 'sel' : ''}" data-id="${a.id}" data-s="${a.status}">
+    <div class="top"><span class="sdot" title="${LABEL[a.status]}"></span><span class="title">${esc(a.title)}</span><span class="id">${a.id}</span></div>
+    ${a.summary ? `<div class="sum">${esc(a.summary)}</div>` : ''}
+    <div class="meta"><span class="muted">${fmtDate(a.createdAt)}</span>
+      ${a.points.length ? `<span class="chip">${open ? `${open}/${a.points.length} points open` : '✓ points done'}</span>` : ''}
+      ${tasks.length ? `<span class="chip">${tasks.length} task${tasks.length === 1 ? "" : "s"}</span>` : ''}
+      ${a.tags.map(t => `<span class="chip tag">${esc(t)}</span>`).join('')}
+    </div></div>`;
+}
+
+function answerDetail(a) {
+  const tasks = state.data.tasks.filter(t => t.answerId === a.id);
+  const resumePrompt = `Regarding saved answer ${a.id} ("${a.title}"): `;
+  return `
+    <div class="head" data-s="${a.status}">
+      <button class="btn ghost sm" id="back" style="display:none">← List</button>
+      <input class="title-edit" id="a-title" value="${esc(a.title)}">
+      <select class="input" id="a-status">${state.data.meta.ANSWER_STATUSES.map(s => `<option value="${s}" ${s === a.status ? 'selected' : ''}>${LABEL[s]}</option>`).join('')}</select>
+    </div>
+    <div class="muted" style="font-size:12.5px"><span class="id">${a.id}</span> · ${fmtDate(a.createdAt)}${a.session ? ` · Session <span class="id">${a.session.slice(0, 8)}</span>` : ''}
+      ${a.tags.map(t => `<span class="chip tag">${esc(t)}</span>`).join(' ')}</div>
+    <div class="actions">
+      ${a.session ? `<a class="btn primary" href="${esc(vscodeLink(a.session, resumePrompt))}" title="Opens exactly this Claude session in VS Code with a follow-up prepared">↩ Jump to session</a>` : ''}
+      ${a.chatUrl ? `<a class="btn primary" href="${esc(a.chatUrl)}" target="_blank" rel="noreferrer" title="Opens the chat this answer came from">↩ Open chat</a>` : ''}
+      <a class="btn" href="${esc(vscodeLink(null, `/ref ${a.id} `))}" title="New Claude session in VS Code that loads this answer as context">＋ Follow-up in new session</a>
+      ${a.session ? `<button class="btn" id="copy-resume" title="For the terminal">⧉ claude --resume</button>` : ''}
+      <button class="btn" id="copy-ref" title="For the chat with the AI">⧉ /ref ${a.id}</button>
+      <button class="btn" id="a-task">→ Task</button>
+      <button class="btn ghost" id="a-chat" title="Store a chat link, e.g. from Claude Desktop">🔗 ${a.chatUrl ? 'Change link' : 'Chat link'}</button>
+      <div class="spacer"></div>
+      <button class="btn ghost danger" id="a-del">Delete</button>
+    </div>
+    ${a.summary ? `<div class="card" style="background:var(--accent-soft);border-color:transparent;box-shadow:none">${esc(a.summary)}</div>` : ''}
+    <div class="section"><h3>Open points <span class="muted" style="text-transform:none;letter-spacing:0">${a.points.filter(p => p.done).length}/${a.points.length}</span></h3>
+      <div id="points">${a.points.map(p => {
+        const t = tasks.find(x => x.answerPoint === p.id);
+        return `<div class="check ${p.done ? 'done' : ''}" data-pid="${p.id}">
+          <input type="checkbox" ${p.done ? 'checked' : ''}><span class="txt">${inline(p.text)}</span>
+          ${t ? `<span class="chip link" data-task="${t.id}" data-s="${t.status}"><span class="sdot"></span>${t.id}</span>` : ''}
+          <span class="acts">${t ? '' : `<button class="btn ghost sm" data-act="task" title="Create as task">→ Task</button>`}<button class="btn ghost sm" data-act="del" title="Remove">✕</button></span>
+        </div>`;
+      }).join('')}</div>
+      <form class="add-row" id="p-add"><input class="input" placeholder="Add a point, e.g. &quot;Ask later: …&quot;"><button class="btn">＋</button></form>
+    </div>
+    ${tasks.length ? `<div class="section"><h3>Linked tasks</h3>${tasks.map(t => `<div class="check" data-s="${t.status}"><span class="sdot" style="margin-top:6px"></span><span class="txt"><a href="#" data-task="${t.id}">${esc(t.title)}</a> <span class="id">${t.id}</span></span><span class="muted" style="font-size:12px">${LABEL[t.status]}</span></div>`).join('')}</div>` : ''}
+    ${a.prompt ? `<div class="section"><h3>Your question</h3><div class="prompt">${esc(a.prompt)}</div></div>` : ''}
+    <div class="section"><h3>Answer <button class="btn ghost sm" id="copy-content">⧉ copy</button></h3><div class="card md">${md(a.content)}</div></div>
+    <div class="section"><h3>Notes</h3><textarea class="input desc" id="a-notes" placeholder="Your notes…">${esc(a.notes)}</textarea></div>`;
+}
+
+function bindAnswerDetail(a) {
+  if (matchMedia('(max-width: 760px)').matches) { $('#back').style.display = ''; $('#back').onclick = () => selectAnswer(null); }
+  $('#a-title').onchange = (e) => op('answer.update', { id: a.id, patch: { title: e.target.value } });
+  $('#a-status').onchange = (e) => op('answer.update', { id: a.id, patch: { status: e.target.value } });
+  $('#a-notes').onchange = (e) => op('answer.update', { id: a.id, patch: { notes: e.target.value } });
+  $('#copy-content').onclick = () => copy(a.content);
+  $('#copy-ref').onclick = () => copy(`/ref ${a.id} `, `"/ref ${a.id}" copied, paste it into Claude`);
+  if ($('#copy-resume')) $('#copy-resume').onclick = () => copy(`claude --resume ${a.session}`);
+  $('#a-chat').onclick = () => {
+    const url = prompt('Link to the chat (empty = remove):', a.chatUrl || '');
+    if (url !== null) op('answer.update', { id: a.id, patch: { chatUrl: url.trim() || null } });
+  };
+  $('#a-del').onclick = () => { if (confirm(`Delete ${a.id}?`)) { state.sel = null; op('answer.delete', { id: a.id }); } };
+  $('#a-task').onclick = async () => {
+    const t = await op('task.add', { title: a.title, description: a.summary || '', answerId: a.id });
+    openTask(t.id);
+  };
+  $('#p-add').onsubmit = (e) => { e.preventDefault(); const v = e.target[0].value.trim(); if (v) op('answer.point.add', { id: a.id, text: v }); };
+  $('#points').onclick = async (e) => {
+    const row = e.target.closest('[data-pid]'); if (!row) return;
+    const point = Number(row.dataset.pid);
+    if (e.target.matches('input[type=checkbox]')) return op('answer.point.update', { id: a.id, point, done: e.target.checked });
+    const act = e.target.closest('[data-act]')?.dataset.act;
+    if (act === 'del') return op('answer.point.update', { id: a.id, point, remove: true });
+    if (act === 'task') {
+      const p = a.points.find(x => x.id === point);
+      const t = await op('task.add', { title: p.text, answerId: a.id, answerPoint: point });
+      toast(`${t.id} created`);
+    }
+  };
+  document.querySelectorAll('.adetail [data-task]').forEach(el => el.onclick = (e) => { e.preventDefault(); openTask(el.dataset.task); });
+}
+
+function selectAnswer(id) {
+  state.sel = id;
+  history.replaceState(null, '', location.pathname + location.search + (id ? '#' + id : ''));
+  render();
+}
+
+// ------------------------------------------------------------ inbox
+function renderInbox() {
+  const d = state.data;
+  const f = state.iFilter;
+  const list = d.inbox
+    .filter(i => f === 'all' || i.status === f)
+    .filter(i => matches(i, ['id', 'title', 'notes']) || i.tags.some(t => t.includes(state.q)));
+  const sel = d.inbox.find(i => i.id === state.isel);
+  const n = (s) => d.inbox.filter(i => i.status === s).length;
+
+  $('#main').innerHTML = `
+    <div class="toolbar">
+      <div class="seg" id="ifilter">
+        ${[['open', `Open (${n('open')})`], ['clarified', 'Clarified'], ['dropped', 'Dropped'], ['all', 'All']]
+          .map(([k, l]) => `<button data-f="${k}" class="${f === k ? 'on' : ''}">${l}</button>`).join('')}
+      </div>
+      <form class="capture" id="capture"><input class="input" placeholder="What still needs clarifying? (Enter)"><button class="btn primary">＋ Inbox</button></form>
+      <div class="spacer"></div>
+      <span class="muted" style="font-size:12px">From Claude: <code>/inbox</code></span>
+    </div>
+    <div class="split ${sel ? 'has-sel' : ''}">
+      <div class="alist">${list.length ? list.map(inboxItem).join('') : `<div class="empty">Nothing to clarify${f === 'open' ? '' : ' here'}.<br>Capture open questions and unclear ideas above. Once they're clear, turn them into a task.</div>`}</div>
+      <div class="adetail">${sel ? inboxDetail(sel) : `<div class="empty">Select an item</div>`}</div>
+    </div>`;
+
+  $('#ifilter').onclick = (e) => { const b = e.target.closest('button'); if (b) { state.iFilter = b.dataset.f; ls.set('iFilter', b.dataset.f); render(); } };
+  $('#capture').onsubmit = async (e) => {
+    e.preventDefault();
+    const v = e.target[0].value.trim(); if (!v) return;
+    e.target[0].value = '';
+    const i = await op('inbox.add', { title: v });
+    toast(`${i.id} added`);
+    $('#capture input')?.focus();
+  };
+  document.querySelectorAll('.aitem').forEach(el => el.onclick = () => selectInbox(el.dataset.id));
+  if (sel) bindInboxDetail(sel);
+}
+
+function inboxItem(i) {
+  const first = i.notes.split('\n').find(l => l.trim()) || '';
+  return `<div class="aitem ${i.id === state.isel ? 'sel' : ''}" data-id="${i.id}" data-s="${i.status}">
+    <div class="top"><span class="sdot" title="${LABEL[i.status]}"></span><span class="title">${esc(i.title)}</span><span class="id">${i.id}</span></div>
+    ${first ? `<div class="sum">${esc(first)}</div>` : ''}
+    <div class="meta"><span class="muted">${fmtDate(i.createdAt)}</span>
+      ${i.taskIds.map(t => `<span class="chip">→ ${t}</span>`).join('')}
+      ${i.tags.map(t => `<span class="chip tag">${esc(t)}</span>`).join('')}
+    </div></div>`;
+}
+
+function inboxDetail(i) {
+  const tasks = i.taskIds.map(id => state.data.tasks.find(t => t.id === id)).filter(Boolean);
+  return `
+    <div class="head" data-s="${i.status}">
+      <button class="btn ghost sm" id="back" style="display:none">← List</button>
+      <input class="title-edit" id="i-title" value="${esc(i.title)}">
+      <select class="input" id="i-status">${state.data.meta.INBOX_STATUSES.map(s => `<option value="${s}" ${s === i.status ? 'selected' : ''}>${LABEL[s]}</option>`).join('')}</select>
+    </div>
+    <div class="muted" style="font-size:12.5px"><span class="id">${i.id}</span> · ${fmtDate(i.createdAt)}</div>
+    <div class="actions">
+      <button class="btn primary" id="i-task" title="Create a task from this item and mark it clarified">→ Task</button>
+      <button class="btn" id="i-copy" title="For the chat with the AI">⧉ For Claude</button>
+      <div class="spacer"></div>
+      <button class="btn ghost danger" id="i-del">Delete</button>
+    </div>
+    <div class="props" style="margin-top:0"><label>Tags</label><input class="input" id="i-tags" value="${esc(i.tags.join(', '))}" placeholder="comma-separated"></div>
+    <div class="section"><h3>Notes</h3>${editableMd('i-notes', i.notes, 'What do you know so far, who to ask, what is unclear… (Markdown, T5/A3 become links)')}</div>
+    ${tasks.length ? `<div class="section"><h3>Tasks from this</h3>${tasks.map(t => `<div class="check" data-s="${t.status}"><span class="sdot" style="margin-top:6px"></span><span class="txt"><a href="#" data-ref="${t.id}">${esc(t.title)}</a> <span class="id">${t.id}</span></span><span class="muted" style="font-size:12px">${LABEL[t.status]}</span></div>`).join('')}</div>` : ''}`;
+}
+
+function bindInboxDetail(i) {
+  if (matchMedia('(max-width: 760px)').matches) { $('#back').style.display = ''; $('#back').onclick = () => selectInbox(null); }
+  const upd = (patch) => op('inbox.update', { id: i.id, patch });
+  $('#i-title').onchange = (e) => upd({ title: e.target.value });
+  $('#i-status').onchange = (e) => upd({ status: e.target.value });
+  $('#i-tags').onchange = (e) => upd({ tags: e.target.value.split(',').map(x => x.trim()).filter(Boolean) });
+  bindEditable($('.adetail'), (_, v) => upd({ notes: v }));
+  $('#i-copy').onclick = () => copy(`Regarding inbox item ${i.id} ("${i.title}"), see \`keepr show ${i.id}\`: `, 'Reference copied');
+  $('#i-del').onclick = () => { if (confirm(`Delete ${i.id}?`)) { state.isel = null; op('inbox.delete', { id: i.id }); } };
+  $('#i-task').onclick = async () => { const t = await op('inbox.toTask', { id: i.id }); openTask(t.id); };
+}
+
+function selectInbox(id) {
+  state.isel = id;
+  history.replaceState(null, '', location.pathname + location.search + (id ? '#' + id : ''));
+  render();
+}
+
+// ------------------------------------------------------------ tasks
+function visibleTasks() {
+  return state.data.tasks
+    .filter(t => matches(t, ['id', 'title', 'description']) || t.tags.some(x => x.includes(state.q))
+      || t.subtasks.some(x => x.text.toLowerCase().includes(state.q)))
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
+}
+
+function renderTasks() {
+  const { STATUSES } = state.data.meta;
+  const tasks = visibleTasks();
+  const cols = STATUSES.filter(s => state.showDone || s !== 'done');
+  $('#main').innerHTML = `
+    <div class="toolbar">
+      <div class="seg" id="view">
+        <button data-v="board" class="${state.view === 'board' ? 'on' : ''}">▦ Board</button>
+        <button data-v="list" class="${state.view === 'list' ? 'on' : ''}">☰ List</button>
+      </div>
+      <label class="muted" style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="show-done" ${state.showDone ? 'checked' : ''}> Show done</label>
+      <div class="spacer"></div>
+      <span class="muted" style="font-size:12px">From Claude: <code>/task</code></span>
+      <button class="btn primary" id="new-task">＋ Task</button>
+    </div>
+    ${state.view === 'board' ? `<div class="board">${cols.map(s => column(s, tasks.filter(t => t.status === s))).join('')}</div>`
+      : `<div class="tlist">${cols.map(s => listGroup(s, tasks.filter(t => t.status === s))).join('')}</div>`}`;
+
+  $('#view').onclick = (e) => { const b = e.target.closest('button'); if (b) { state.view = b.dataset.v; ls.set('view', b.dataset.v); render(); } };
+  $('#show-done').onchange = (e) => { state.showDone = e.target.checked; ls.set('showDone', state.showDone); render(); };
+  $('#new-task').onclick = () => quickAdd('todo');
+  document.querySelectorAll('[data-open]').forEach(el => el.onclick = (e) => { if (!e.target.closest('select')) openTask(el.dataset.open); });
+  document.querySelectorAll('.quick').forEach(el => el.onclick = () => quickAdd(el.dataset.status));
+  document.querySelectorAll('.trow select').forEach(el => el.onchange = () => op('task.update', { id: el.dataset.id, patch: { [el.dataset.k]: el.value } }));
+  if (state.view === 'board') bindDnD();
+}
+
+function column(s, tasks) {
+  return `<div class="col" data-col="${s}" data-s="${s}">
+    <div class="col-head"><span class="sdot"></span>${LABEL[s]} <span class="n">${tasks.length}</span></div>
+    <div class="col-body">${tasks.map(taskCard).join('')}<button class="quick" data-status="${s}">＋ Task</button></div>
+  </div>`;
+}
+
+function taskCard(t) {
+  const done = t.subtasks.filter(s => s.done).length;
+  const blocked = blockers(t);
+  const links = taskLinks(t).length;
+  return `<div class="tcard" draggable="true" data-open="${t.id}" data-id="${t.id}">
+    <div class="t">${esc(t.title)}</div>
+    ${t.subtasks.length ? `<div class="progress"><i style="width:${(done / t.subtasks.length) * 100}%"></i></div>` : ''}
+    <div class="meta"><span class="id">${t.id}</span>
+      ${PRIO_MARK[t.priority] ? `<span class="prio ${t.priority}">${PRIO_MARK[t.priority]}</span>` : ''}
+      ${fmtDue(t.due)}
+      ${t.subtasks.length ? `<span>☑ ${done}/${t.subtasks.length}</span>` : ''}
+      ${t.comments.length ? `<span>💬 ${t.comments.length}</span>` : ''}
+      ${blocked.length ? `<span class="chip blocked" title="Waiting for ${blocked.map(x => x.id).join(', ')}">⛔ ${blocked.map(x => x.id).join(', ')}</span>` : links ? `<span title="Links">🔗 ${links}</span>` : ''}
+      ${t.pomodoros ? `<span title="${t.focusMinutes || 0} min focus">🍅 ${t.pomodoros}</span>` : ''}
+      ${t.answerId ? `<span class="chip">↩ ${t.answerId}</span>` : ''}
+      ${t.inboxId ? `<span class="chip">↩ ${t.inboxId}</span>` : ''}
+      ${t.tags.map(x => `<span class="chip tag">${esc(x)}</span>`).join('')}
+    </div></div>`;
+}
+
+function listGroup(s, tasks) {
+  const { STATUSES, PRIORITIES } = state.data.meta;
+  const sel = (t, k, vals) => `<select data-id="${t.id}" data-k="${k}">${vals.map(v => `<option value="${v}" ${t[k] === v ? 'selected' : ''}>${LABEL[v]}</option>`).join('')}</select>`;
+  return `<div class="group" data-s="${s}">
+    <div class="group-head"><span class="sdot"></span>${LABEL[s]} <span class="muted">${tasks.length}</span></div>
+    ${tasks.length ? `<div class="thead"><span>ID</span><span>Task</span><span>Status</span><span>Priority</span><span>Due</span><span>Subt.</span></div>` : ''}
+    <div>${tasks.map(t => `<div class="trow" data-open="${t.id}">
+      <span class="id">${t.id}</span>
+      <span class="t">${esc(t.title)} ${blockers(t).length ? '<span class="chip blocked">⛔</span>' : ''} ${t.tags.map(x => `<span class="chip tag">${esc(x)}</span>`).join(' ')}</span>
+      ${sel(t, 'status', STATUSES)}${sel(t, 'priority', PRIORITIES)}
+      <span style="font-size:12.5px">${fmtDue(t.due) || '<span class="muted">–</span>'}</span>
+      <span class="muted" style="font-size:12.5px">${t.subtasks.length ? `${t.subtasks.filter(x => x.done).length}/${t.subtasks.length}` : '–'}</span>
+    </div>`).join('')}</div>
+    <button class="quick" style="margin-top:6px;width:100%" data-status="${s}">＋ Task</button>
+  </div>`;
+}
+
+function bindDnD() {
+  let dragId = null;
+  document.querySelectorAll('.tcard').forEach(c => {
+    c.ondragstart = (e) => { dragId = c.dataset.id; c.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; };
+    c.ondragend = () => c.classList.remove('dragging');
+  });
+  document.querySelectorAll('.col').forEach(col => {
+    const body = $('.col-body', col);
+    col.ondragover = (e) => {
+      e.preventDefault(); col.classList.add('over');
+      const dragging = $('.tcard.dragging'); if (!dragging) return;
+      const after = [...body.querySelectorAll('.tcard:not(.dragging)')].find(el => e.clientY < el.getBoundingClientRect().top + el.offsetHeight / 2);
+      body.insertBefore(dragging, after || $('.quick', body));
+    };
+    col.ondragleave = (e) => { if (!col.contains(e.relatedTarget)) col.classList.remove('over'); };
+    col.ondrop = (e) => {
+      e.preventDefault(); col.classList.remove('over');
+      if (!dragId) return;
+      const orderedIds = [...body.querySelectorAll('.tcard')].map(el => el.dataset.id);
+      op('task.move', { id: dragId, status: col.dataset.col, orderedIds });
+      dragId = null;
+    };
+  });
+}
+
+async function quickAdd(status) {
+  const title = prompt('New task:');
+  if (!title?.trim()) return;
+  const t = await op('task.add', { title: title.trim(), status });
+  openTask(t.id);
+}
+
+// ------------------------------------------------------------ task drawer
+function openTask(id) { state.task = id; render(); $('#drawer').classList.add('open'); $('#drawer-bg').classList.add('open'); }
+function closeTask() { state.task = null; $('#drawer').classList.remove('open'); $('#drawer-bg').classList.remove('open'); }
+
+function renderDrawer(force = false) {
+  const t = state.data.tasks.find(x => x.id === state.task);
+  if (!t) return closeTask();
+  const { STATUSES, PRIORITIES, LINK_TYPES } = state.data.meta;
+  const ans = t.answerId && state.data.answers.find(a => a.id === t.answerId);
+  const inb = t.inboxId && state.data.inbox.find(i => i.id === t.inboxId);
+  const ae = document.activeElement;
+  const typing = $('#drawer').contains(ae) && (ae.matches('textarea') || ['t-title', 't-tags', 'sub-text', 'l-to'].includes(ae.id));
+  if (typing && !force) return; // don't overwrite while typing
+  const keep = typing && ae.id ? { id: ae.id, value: ae.value, start: ae.selectionStart, end: ae.selectionEnd } : null;
+  const done = t.subtasks.filter(s => s.done).length;
+  const links = taskLinks(t);
+  const others = state.data.tasks.filter(x => x.id !== t.id && !links.some(l => l.id === x.id));
+  const pomoHere = P.s.task?.id === t.id && P.s.task?.project === state.project;
+  const statusOpts = (cur) => STATUSES.map(s => `<option value="${s}" ${s === cur ? 'selected' : ''}>${LABEL[s]}</option>`).join('');
+  $('#drawer').innerHTML = `
+    <div style="display:flex;gap:8px;align-items:center"><span class="id">${t.id}</span><div class="spacer"></div>
+      <button class="btn ghost sm" id="t-pomo" title="Start a pomodoro (focus session) on this task">🍅 ${pomoHere && P.s.running ? 'Running' : 'Focus'}</button>
+      <button class="btn ghost sm" id="t-copy" title="For the chat with the AI">⧉ For Claude</button>
+      <button class="btn ghost sm danger" id="t-del">Delete</button><button class="btn ghost" id="t-close">✕</button></div>
+    <input class="title-edit" id="t-title" value="${esc(t.title)}" style="width:100%">
+    <div class="props">
+      <label>Status</label><select class="input" id="t-status">${statusOpts(t.status)}</select>
+      <label>Priority</label><select class="input" id="t-prio">${PRIORITIES.map(s => `<option value="${s}" ${s === t.priority ? 'selected' : ''}>${LABEL[s]}</option>`).join('')}</select>
+      <label>Due</label><input class="input" type="date" id="t-due" value="${t.due || ''}">
+      <label>Tags</label><input class="input" id="t-tags" value="${esc(t.tags.join(', '))}" placeholder="comma-separated">
+      ${ans ? `<label>From answer</label><span><a href="#" data-ref="${ans.id}">${ans.id} – ${esc(ans.title)}</a>${t.answerPoint ? ` <span class="muted">(point ${t.answerPoint})</span>` : ''}</span>` : ''}
+      ${inb ? `<label>From inbox</label><span><a href="#" data-ref="${inb.id}">${inb.id} – ${esc(inb.title)}</a></span>` : ''}
+      ${t.pomodoros ? `<label>Focus</label><span>🍅 ${t.pomodoros} pomodoro${t.pomodoros === 1 ? '' : 's'} · ${t.focusMinutes || 0} min</span>` : ''}
+    </div>
+    <div class="section"><h3>Description</h3>
+      ${editableMd('t-desc', t.description, 'Details, context, definition of done… (Markdown, T5/A3/I2 become links)')}</div>
+    <div class="section"><h3>Subtasks <span class="muted" style="text-transform:none;letter-spacing:0">${done}/${t.subtasks.length}</span></h3>
+      ${t.subtasks.length ? `<div class="progress" style="margin-bottom:6px"><i style="width:${(done / t.subtasks.length) * 100}%"></i></div>` : ''}
+      <div id="subs">${t.subtasks.map(s => {
+        const open = state.openSub === `${t.id}/${s.id}`;
+        return `<div class="check ${s.done ? 'done' : ''}" data-sid="${s.id}" data-s="${s.status}">
+          <input type="checkbox" ${s.done ? 'checked' : ''}><span class="sdot" style="margin-top:6px" title="${LABEL[s.status]}"></span>
+          <span class="txt" data-act="toggle" style="cursor:pointer">${inline(s.text, true)}${s.description && !open ? ' <span class="muted" title="Has a description">¶</span>' : ''}</span>
+          ${s.status === 'in_progress' || s.status === 'review' ? `<span class="chip sub-st" data-s="${s.status}"><span class="sdot"></span>${LABEL[s.status]}</span>` : ''}
+          <span class="acts"><button class="btn ghost sm" data-act="toggle" title="Status &amp; description">✎</button><button class="btn ghost sm" data-act="del" title="Remove">✕</button></span>
+        </div>
+        ${open ? `<div class="sub-edit" data-sid="${s.id}">
+          <div class="row"><input class="input" id="sub-text" value="${esc(s.text)}"><select class="input" id="sub-status">${statusOpts(s.status)}</select></div>
+          <textarea class="input" id="sub-desc" placeholder="Description (Markdown)">${esc(s.description)}</textarea>
+          <div class="row" style="justify-content:flex-end"><button class="btn sm" data-act="close">Done</button></div>
+        </div>` : s.description ? `<div class="sub-desc md">${md(s.description.split('\n')[0], true)}</div>` : ''}`;
+      }).join('')}</div>
+      <form class="add-row" id="s-add"><input class="input" placeholder="Add a subtask"><button class="btn">＋</button></form></div>
+    <div class="section"><h3>Links</h3>
+      <div id="links">${links.map(l => {
+        const x = state.data.tasks.find(y => y.id === l.id);
+        return `<div class="check" data-s="${x?.status || 'todo'}"><span class="sdot" style="margin-top:6px"></span>
+          <span class="txt"><span class="muted">${LABEL[l.rel]}</span> <a href="#" class="ref ${x?.status === 'done' ? 'done' : ''}" data-ref="${l.id}">${l.id}</a> ${esc(x?.title || '')}</span>
+          <span class="muted" style="font-size:12px">${x ? LABEL[x.status] : ''}</span>
+          <span class="acts"><button class="btn ghost sm" data-unlink="${l.id}" title="Remove link">✕</button></span></div>`;
+      }).join('')}</div>
+      <form class="add-row" id="l-add">
+        <select class="input" id="l-type">${LINK_TYPES.map(k => `<option value="${k}">${LABEL[k]}</option>`).join('')}</select>
+        <input class="input" id="l-to" list="l-options" placeholder="Task ID or title">
+        <datalist id="l-options">${others.map(x => `<option value="${x.id} – ${esc(x.title)}">`).join('')}</datalist>
+        <button class="btn">Link</button></form></div>
+    <div class="section"><h3>Comments</h3>
+      ${t.comments.map(c => `<div class="comment ${c.author}"><div class="who">${c.author === 'ai' ? '🤖 AI' : 'You'} · ${fmtDate(c.at)}</div><div class="md">${md(c.text, true)}</div></div>`).join('')}
+      <form class="add-row" id="c-add"><input class="input" placeholder="Write a comment"><button class="btn">Send</button></form></div>
+    <div class="muted" style="font-size:12px;margin-top:20px">Created ${fmtDate(t.createdAt)} · Updated ${fmtDate(t.updatedAt)}${t.doneAt ? ` · Done ${fmtDate(t.doneAt)}` : ''}</div>`;
+
+  if (keep && $('#' + keep.id)) { // forced re-render: keep focus and unsaved input
+    const el = $('#' + keep.id);
+    el.value = keep.value; el.focus();
+    try { el.setSelectionRange(keep.start, keep.end); } catch {}
+  }
+
+  const upd = (patch) => op('task.update', { id: t.id, patch });
+  $('#t-close').onclick = closeTask;
+  $('#t-del').onclick = () => { if (confirm(`Delete ${t.id}?`)) { closeTask(); op('task.delete', { id: t.id }); } };
+  $('#t-copy').onclick = () => copy(`Task ${t.id} ("${t.title}") – see \`keepr task show ${t.id}\`: `, 'Reference copied');
+  $('#t-pomo').onclick = () => { pomoStart({ project: state.project, id: t.id, title: t.title }); pomoOpen(true); };
+  $('#t-title').onchange = (e) => upd({ title: e.target.value });
+  $('#t-status').onchange = (e) => upd({ status: e.target.value });
+  $('#t-prio').onchange = (e) => upd({ priority: e.target.value });
+  $('#t-due').onchange = (e) => upd({ due: e.target.value || null });
+  $('#t-tags').onchange = (e) => upd({ tags: e.target.value.split(',').map(x => x.trim()).filter(Boolean) });
+  bindEditable($('#drawer'), (_, v) => upd({ description: v }));
+  $('#s-add').onsubmit = (e) => { e.preventDefault(); const v = e.target[0].value.trim(); if (v) op('task.sub.add', { id: t.id, text: v }).then(() => $('#s-add input')?.focus()); };
+  $('#c-add').onsubmit = (e) => { e.preventDefault(); const v = e.target[0].value.trim(); if (v) op('task.comment', { id: t.id, text: v }); };
+  $('#subs').onclick = (e) => {
+    if (e.target.closest('[data-ref]')) return;
+    const row = e.target.closest('[data-sid]'); if (!row) return;
+    const sub = Number(row.dataset.sid);
+    const act = e.target.closest('[data-act]')?.dataset.act;
+    if (e.target.matches('input[type=checkbox]')) op('task.sub.update', { id: t.id, sub, done: e.target.checked });
+    else if (act === 'del') op('task.sub.update', { id: t.id, sub, remove: true });
+    else if (act === 'toggle' || act === 'close') {
+      const key = `${t.id}/${sub}`;
+      state.openSub = state.openSub === key || act === 'close' ? null : key;
+      document.activeElement?.blur(); renderDrawer();
+    }
+  };
+  const openSub = state.openSub?.startsWith(t.id + '/') && Number(state.openSub.split('/')[1]);
+  if (openSub && $('#sub-text')) {
+    const su = (args) => op('task.sub.update', { id: t.id, sub: openSub, ...args });
+    $('#sub-text').onchange = (e) => e.target.value.trim() && su({ text: e.target.value.trim() });
+    $('#sub-status').onchange = (e) => su({ status: e.target.value });
+    const orig = $('#sub-desc').value;
+    $('#sub-desc').onblur = (e) => { if (e.target.value !== orig) su({ description: e.target.value }); };
+  }
+  $('#links').onclick = (e) => {
+    const b = e.target.closest('[data-unlink]');
+    if (b) op('task.unlink', { id: t.id, to: b.dataset.unlink });
+  };
+  $('#l-add').onsubmit = (e) => {
+    e.preventDefault();
+    const v = $('#l-to').value.trim(); if (!v) return;
+    const id = v.match(/^T\d+/i)?.[0].toUpperCase() || state.data.tasks.find(x => x.title.toLowerCase() === v.toLowerCase())?.id;
+    if (!id) return toast('No matching task');
+    op('task.link', { id: t.id, to: id, type: $('#l-type').value });
+  };
+}
+
+// ------------------------------------------------------------ pomodoro
+// State lives in localStorage so it survives reloads and is shared between dashboard tabs.
+const P = { s: null, ctx: null };
+function pomoLoad() {
+  const cfg = { focus: 25, short: 5, long: 15, every: 4 };
+  const s = ls.get('pomo', {});
+  P.s = { mode: 'focus', running: false, endAt: null, left: null, round: 0, task: null, ...s, cfg: { ...cfg, ...(s.cfg || {}) } };
+}
+const pomoSave = () => ls.set('pomo', P.s);
+const pomoDur = (mode) => P.s.cfg[mode] * 60000;
+const pomoLeft = () => P.s.running ? Math.max(0, P.s.endAt - Date.now()) : (P.s.left ?? pomoDur(P.s.mode));
+const mmss = (ms) => { const t = Math.ceil(ms / 1000); return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`; };
+const POMO_MODES = { focus: 'Focus', short: 'Short break', long: 'Long break' };
+
+function pomoStart(task) {
+  if (task) {
+    if (P.s.mode !== 'focus' || P.s.task?.id !== task.id || P.s.task?.project !== task.project) {
+      P.s.running = false; P.s.left = null; P.s.mode = 'focus';
+    }
+    P.s.task = task;
+  }
+  if (!P.s.running) {
+    P.s.endAt = Date.now() + pomoLeft(); P.s.running = true; P.s.left = null;
+  }
+  try { P.ctx ??= new AudioContext(); } catch {}
+  if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {});
+  pomoSave(); pomoPaint(true);
+}
+function pomoPause() { P.s.left = pomoLeft(); P.s.running = false; P.s.endAt = null; pomoSave(); pomoPaint(true); }
+function pomoReset() { P.s.running = false; P.s.endAt = null; P.s.left = null; pomoSave(); pomoPaint(true); }
+function pomoMode(mode) { P.s.mode = mode; pomoReset(); }
+
+function pomoComplete(skipped = false) {
+  const fresh = ls.get('pomo', {});
+  if (!skipped && (!fresh.running || fresh.endAt !== P.s.endAt)) { pomoLoad(); return; } // another tab handled it
+  const finished = P.s.mode;
+  if (finished === 'focus' && !skipped) {
+    P.s.round++;
+    if (P.s.task) opIn(P.s.task.project, 'task.pomodoro', { id: P.s.task.id, minutes: P.s.cfg.focus }).catch(() => {});
+  }
+  P.s.mode = finished === 'focus' ? (P.s.round && P.s.round % P.s.cfg.every === 0 ? 'long' : 'short') : 'focus';
+  P.s.running = false; P.s.endAt = null; P.s.left = null;
+  pomoSave(); pomoPaint(true);
+  if (!skipped) pomoNotify(finished === 'focus' ? `Focus done${P.s.task ? ` (${P.s.task.id})` : ''} – time for a ${P.s.mode === 'long' ? 'long ' : ''}break` : 'Break over – back to focus');
+}
+
+function pomoNotify(msg) {
+  toast(msg);
+  try {
+    const ctx = P.ctx; if (!ctx) throw 0;
+    [0, 0.25, 0.5].forEach(d => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.value = 880; g.gain.setValueAtTime(0.15, ctx.currentTime + d); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + d + 0.2);
+      o.connect(g).connect(ctx.destination); o.start(ctx.currentTime + d); o.stop(ctx.currentTime + d + 0.2);
+    });
+  } catch {}
+  try { if (Notification.permission === 'granted') new Notification('keepr 🍅', { body: msg }); } catch {}
+}
+
+function pomoOpen(open = $('#pomo-pop').hidden) { $('#pomo-pop').hidden = !open; pomoPaint(true); }
+
+function pomoPaint(full = false) {
+  if (!P.s) return;
+  const left = mmss(pomoLeft());
+  const btn = $('#pomo-btn');
+  btn.textContent = `${P.s.mode === 'focus' ? '🍅' : '☕'} ${left}`;
+  btn.classList.toggle('running', P.s.running);
+  btn.dataset.m = P.s.mode;
+  document.title = P.s.running ? `${P.s.mode === 'focus' ? '🍅' : '☕'} ${left} · keepr` : 'keepr';
+  const pop = $('#pomo-pop');
+  if (pop.hidden) return;
+  if (!full && $('#pomo-time')) { $('#pomo-time').textContent = left; return; }
+  if (pop.contains(document.activeElement) && document.activeElement.matches('input, select')) return;
+  const tasks = state.data ? state.data.tasks.filter(t => t.status !== 'done') : [];
+  const cur = P.s.task;
+  const curHere = cur && cur.project === state.project;
+  const every = P.s.cfg.every, inCycle = P.s.round % every;
+  pop.innerHTML = `
+    <div class="seg" id="pomo-modes">${Object.entries(POMO_MODES).map(([k, l]) => `<button data-m="${k}" class="${P.s.mode === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+    <div class="pomo-time" id="pomo-time">${left}</div>
+    <div class="pomo-dots" title="Focus sessions in this cycle (long break after ${every})">${'●'.repeat(inCycle)}${'○'.repeat(every - inCycle)} · ${P.s.round} today</div>
+    <div class="row">
+      <button class="btn primary" id="pomo-go">${P.s.running ? '❚❚ Pause' : '▶ Start'}</button>
+      <button class="btn" id="pomo-reset">↺ Reset</button>
+      <button class="btn" id="pomo-skip" title="Skip to the next phase">⏭ Skip</button>
+    </div>
+    <select class="input" id="pomo-task" title="Finished focus sessions are counted on this task">
+      <option value="">No task</option>
+      ${cur && !curHere ? `<option value="__other" selected>${esc(cur.id)} – ${esc(cur.title || '')} (other project)</option>` : ''}
+      ${tasks.map(t => `<option value="${t.id}" ${curHere && cur.id === t.id ? 'selected' : ''}>${t.id} – ${esc(t.title)}</option>`).join('')}
+    </select>
+    <div class="pomo-cfg">${[['focus', 'Focus'], ['short', 'Short'], ['long', 'Long'], ['every', 'Long every']].map(([k, l]) =>
+      `<label>${l}<input class="input" type="number" min="1" max="${k === 'every' ? 12 : 180}" data-cfg="${k}" value="${P.s.cfg[k]}"></label>`).join('')}</div>`;
+  $('#pomo-modes').onclick = (e) => { const b = e.target.closest('button'); if (b) pomoMode(b.dataset.m); };
+  $('#pomo-go').onclick = () => P.s.running ? pomoPause() : pomoStart();
+  $('#pomo-reset').onclick = pomoReset;
+  $('#pomo-skip').onclick = () => pomoComplete(true);
+  $('#pomo-task').onchange = (e) => {
+    const v = e.target.value; if (v === '__other') return;
+    const t = tasks.find(x => x.id === v);
+    P.s.task = t ? { project: state.project, id: t.id, title: t.title } : null;
+    pomoSave(); e.target.blur(); pomoPaint(true); if (state.task) renderDrawer();
+  };
+  pop.querySelectorAll('[data-cfg]').forEach(inp => inp.onchange = () => {
+    const v = Math.max(1, Math.round(Number(inp.value) || 1));
+    P.s.cfg[inp.dataset.cfg] = v;
+    if (!P.s.running) P.s.left = null;
+    pomoSave(); inp.blur(); pomoPaint(true);
+  });
+}
+
+function pomoInit() {
+  pomoLoad();
+  // Reset the daily counter when a new day starts.
+  if (ls.get('pomoDay', null) !== today()) { P.s.round = 0; pomoSave(); ls.set('pomoDay', today()); }
+  $('#pomo-btn').onclick = (e) => { e.stopPropagation(); pomoOpen(); };
+  document.addEventListener('click', (e) => {
+    if (!$('#pomo-pop').hidden && !e.target.closest('#pomo-pop, #pomo-btn, #t-pomo')) pomoOpen(false);
+  });
+  window.addEventListener('storage', (e) => { if (e.key === 'keepr.pomo') { pomoLoad(); pomoPaint(true); if (state.task) renderDrawer(); } });
+  setInterval(() => {
+    if (P.s.running && Date.now() >= P.s.endAt) pomoComplete();
+    pomoPaint();
+  }, 1000);
+  pomoPaint(true);
+}
+
+// Clicks on references (T5, A3, I2) anywhere jump to the item.
+function goTo(ref) {
+  const id = ref.toUpperCase();
+  if (id[0] === 'T') return openTask(id);
+  closeTask();
+  if (id[0] === 'A') { state.tab = 'answers'; selectAnswer(id); }
+  else { state.tab = 'inbox'; if (state.iFilter !== 'all' && state.data.inbox.find(i => i.id === id)?.status !== state.iFilter) state.iFilter = 'all'; selectInbox(id); }
+}
+
+// ------------------------------------------------------------ init
+async function init() {
+  const theme = ls.get('theme', null);
+  if (theme) document.documentElement.dataset.theme = theme;
+  $('#theme').onclick = () => {
+    const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+    const cur = document.documentElement.dataset.theme || (dark ? 'dark' : 'light');
+    const next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next; ls.set('theme', next);
+  };
+
+  state.projects = await api('/api/projects');
+  const params = new URLSearchParams(location.search);
+  state.project = params.get('p') || ls.get('project', null);
+  if (!state.projects.some(p => p.path === state.project)) state.project = state.projects[0]?.path || null;
+  const sel = $('#project');
+  sel.innerHTML = state.projects.map(p => `<option value="${esc(p.path)}" title="${esc(p.path)}">${esc(p.name)}</option>`).join('');
+  sel.value = state.project || '';
+  sel.onchange = () => {
+    state.project = sel.value; state.sel = null; closeTask(); ls.set('project', sel.value);
+    history.replaceState(null, '', `?p=${encodeURIComponent(sel.value)}`); load();
+  };
+  if (!state.project) { $('#main').innerHTML = `<div class="empty">No project registered. Run <code>keepr init</code> in a project folder.</div>`; return; }
+  ls.set('project', state.project);
+
+  const hash = location.hash.slice(1);
+  if (/^A\d+$/i.test(hash)) { state.tab = 'answers'; state.sel = hash.toUpperCase(); }
+  if (/^T\d+$/i.test(hash)) { state.tab = 'tasks'; state.task = hash.toUpperCase(); }
+  if (/^I\d+$/i.test(hash)) { state.tab = 'inbox'; state.isel = hash.toUpperCase(); state.iFilter = 'all'; }
+
+  $('#tabs').onclick = (e) => { const b = e.target.closest('button'); if (b) { state.tab = b.dataset.tab; render(); } };
+  $('#search').oninput = (e) => { state.q = e.target.value.trim().toLowerCase(); render(); };
+  $('#drawer-bg').onclick = closeTask;
+  document.addEventListener('click', (e) => {
+    const r = e.target.closest('[data-ref]');
+    if (r) { e.preventDefault(); goTo(r.dataset.ref); }
+  });
+  pomoInit();
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { if (!$('#pomo-pop').hidden) pomoOpen(false); else closeTask(); }
+    if (e.key === '/' && !e.target.matches('input, textarea, select')) { e.preventDefault(); $('#search').focus(); }
+  });
+
+  await load();
+  if (state.task) openTask(state.task);
+
+  const connect = () => {
+    const es = new EventSource('/api/events');
+    es.onopen = () => $('#live').classList.add('live');
+    es.onmessage = (e) => { if (JSON.parse(e.data).project === state.project) load(); };
+    es.onerror = () => { $('#live').classList.remove('live'); };
+  };
+  connect();
+}
+init().catch(e => { $('#main').innerHTML = `<div class="empty">Error: ${esc(e.message)}</div>`; });
+</script>
+</body>
+</html>

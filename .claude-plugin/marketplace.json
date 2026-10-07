@@ -1,0 +1,16 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "keepr",
+  "description": "keepr – keep AI answers, clarify open questions and manage tasks in a local dashboard",
+  "owner": {
+    "name": "Sebastian Trümper"
+  },
+  "plugins": [
+    {
+      "name": "keepr",
+      "description": "Keep AI answers with their open points, collect things to clarify in an inbox and manage Kanban-style tasks in a local live dashboard.",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}
