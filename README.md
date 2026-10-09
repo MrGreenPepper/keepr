@@ -210,6 +210,7 @@ keepr save --back 1 --title "…" --summary "…" --point "…" --tag x   # answ
 keepr answers | keepr show A3 | keepr point A3 2 --done | keepr answer A3 --status followup
 keepr task add "Title" --prio high --due 2026-10-20 --sub "…" --from A3
 keepr task list | keepr task start T1 | keepr task sub T1 2 --done | keepr task comment T1 "…" | keepr task done T1
+keepr next                                              # overdue, due within 7 days, urgent/high without due date
 keepr task sub T1 2 --status in_progress --desc "…"     # subtask status and description
 keepr task link T1 T2 --type blocked_by | keepr task unlink T1 T2
 keepr inbox add "Clarify: …" --note "…" | keepr inbox | keepr inbox note I1 "…" | keepr inbox task I1 --prio high
@@ -239,6 +240,7 @@ MCP (Model Context Protocol) is an open standard for connecting AI apps to exter
 | `list_answers`, `get_answer` | List saved answers or load one in full |
 | `update_answer`, `update_answer_point` | Set status, notes and new points; check off points |
 | `list_tasks`, `get_task` | List tasks or load one in full |
+| `next_tasks` | What to do first: overdue, due within 7 days, urgent/high without due date |
 | `add_task`, `update_task` | Create and change tasks, including subtasks, links and comments |
 | `update_subtask`, `delete_task` | Change a subtask's status, text or description, delete a task |
 | `list_inbox`, `get_inbox_item` | List the inbox or load one item with its notes |

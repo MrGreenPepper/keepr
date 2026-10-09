@@ -1,7 +1,7 @@
 {
   "name": "keepr",
   "description": "Keep AI answers with their open points, collect things to clarify in an inbox and manage Kanban-style tasks (subtasks, links, pomodoro) in a local live dashboard. Skills: keep, inbox, task, ref.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": {
     "name": "Sebastian Trümper"
   },

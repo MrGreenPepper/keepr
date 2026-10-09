@@ -141,6 +141,14 @@ main { overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
 .quick:hover { color: var(--text); border-color: var(--muted); }
 
 /* tasks: list */
+.nextup { margin: 0 16px 10px; padding: 10px 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 6px 16px; }
+.nextup > h3 { grid-column: 1 / -1; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0; }
+.nextup .ng-head { font-size: 12.5px; font-weight: 600; margin-bottom: 2px; }
+.nextup .ng-head.overdue { color: var(--bad); }
+.nextup .nrow { display: flex; gap: 8px; align-items: baseline; padding: 3px 6px; margin: 0 -6px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.nextup .nrow:hover { background: var(--panel-2); }
+.nextup .nrow .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nextup .nrow .meta { display: flex; gap: 6px; align-items: baseline; font-size: 12px; color: var(--muted); white-space: nowrap; }
 .tlist { overflow: auto; padding: 0 16px 24px; flex: 1; }
 .group { margin-top: 14px; }
 .group-head { display: flex; align-items: center; gap: 8px; font-weight: 600; padding: 6px 2px; }
@@ -382,7 +390,8 @@ async function copy(text, msg = 'Copied') {
 }
 
 // ------------------------------------------------------------ helpers
-const today = () => new Date().toISOString().slice(0, 10);
+// Local calendar date (not UTC), like localDate() in keepr.mjs.
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 function fmtDate(iso) {
   if (!iso) return '';
   const d = new Date(iso);
@@ -684,6 +693,7 @@ function renderTasks() {
       <span class="muted" style="font-size:12px">From Claude: <code>/task</code></span>
       <button class="btn primary" id="new-task">＋ Task</button>
     </div>
+    ${nextUp()}
     ${state.view === 'board' ? `<div class="board">${cols.map(s => column(s, tasks.filter(t => t.status === s))).join('')}</div>`
       : `<div class="tlist">${cols.map(s => listGroup(s, tasks.filter(t => t.status === s))).join('')}</div>`}`;
 
@@ -694,6 +704,22 @@ function renderTasks() {
   document.querySelectorAll('.quick').forEach(el => el.onclick = () => quickAdd(el.dataset.status));
   document.querySelectorAll('.trow select').forEach(el => el.onchange = () => op('task.update', { id: el.dataset.id, patch: { [el.dataset.k]: el.value } }));
   if (state.view === 'board') bindDnD();
+}
+
+// "Next up" reminder. The selection comes from the server (nextTasks() in keepr.mjs), same as keepr next.
+function nextUp() {
+  const { next, tasks, meta } = state.data;
+  if (!next) return '';
+  const groups = Object.entries(meta.NEXT_GROUPS)
+    .map(([k, label]) => [k, label, next[k].map(id => tasks.find(t => t.id === id)).filter(Boolean)])
+    .filter(([, , list]) => list.length);
+  if (!groups.length) return '';
+  return `<div class="card nextup"><h3>Next up</h3>${groups.map(([k, label, list]) => `<div>
+    <div class="ng-head ${k === 'overdue' ? 'overdue' : ''}">${label} <span class="muted" style="font-weight:500">${list.length}</span></div>
+    ${list.map(t => `<div class="nrow" data-open="${t.id}" data-s="${t.status}"><span class="sdot" title="${LABEL[t.status]}"></span><span class="id">${t.id}</span>
+      <span class="t">${esc(t.title)}</span>
+      <span class="meta">${PRIO_MARK[t.priority] ? `<span class="prio ${t.priority}">${PRIO_MARK[t.priority]}</span>` : ''}${fmtDue(t.due)}</span></div>`).join('')}
+  </div>`).join('')}</div>`;
 }
 
 function column(s, tasks) {

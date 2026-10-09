@@ -10,7 +10,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fs.realpathSync(fileURLToPath(import.meta.url)));
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 const PORT = Number(process.env.KEEPR_PORT || process.env.WF_PORT || 4747);
 const CONFIG_DIR = path.join(os.homedir(), '.config', 'keepr');
 const OLD_CONFIG_DIR = path.join(os.homedir(), '.config', 'wf'); // before the rename to keepr
@@ -174,6 +174,30 @@ export function taskLinks(data, t) {
   for (const x of data.tasks) for (const l of x.links || [])
     if (l.to === t.id) out.push({ id: x.id, rel: l.type === 'blocks' ? 'blocked_by' : 'relates' });
   return out;
+}
+
+// Local calendar date as YYYY-MM-DD (not UTC), optionally shifted by `days`.
+export function localDate(days = 0, base = new Date()) {
+  const d = new Date(base.getFullYear(), base.getMonth(), base.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// "Next up" reminder: open tasks that are overdue, due within 7 days, or urgent/high without a due date.
+// Single source of truth – the CLI (keepr next), the MCP tool and the dashboard (via /api/data) use it.
+export const NEXT_GROUPS = { overdue: 'Overdue', soon: 'Due in the next 7 days', urgent: 'Urgent/high, no due date' };
+export function nextTasks(tasks, today = localDate()) {
+  const horizon = localDate(7, new Date(today + 'T00:00'));
+  const groups = { overdue: [], soon: [], urgent: [] };
+  for (const t of tasks) {
+    if (t.status === 'done') continue;
+    if (t.due && t.due < today) groups.overdue.push(t);
+    else if (t.due && t.due <= horizon) groups.soon.push(t);
+    else if (!t.due && (t.priority === 'urgent' || t.priority === 'high')) groups.urgent.push(t);
+  }
+  const cmp = (a, b) => (a.due || '').localeCompare(b.due || '')
+    || PRIORITIES.indexOf(a.priority) - PRIORITIES.indexOf(b.priority) || (a.order || 0) - (b.order || 0);
+  for (const g of Object.values(groups)) g.sort(cmp);
+  return groups;
 }
 
 function getItem(list, id, what) {
@@ -493,6 +517,12 @@ function fmtTask(t) {
   return `${t.id.padEnd(5)} ${PRIO_ICON[t.priority] || '   '} ${t.status.padEnd(11)} ${t.title}${subs}${due}${tags}${ref}${pomo}`;
 }
 
+function fmtNext(groups) {
+  const parts = Object.entries(NEXT_GROUPS).filter(([k]) => groups[k].length)
+    .map(([k, label]) => `${label} (${groups[k].length})\n${groups[k].map(t => `  ${fmtTask(t)}`).join('\n')}`);
+  return parts.join('\n\n') || '(nothing due – no overdue, upcoming or urgent tasks)';
+}
+
 const SUB_BOX = { todo: ' ', in_progress: '~', review: '?', done: 'x' };
 const LINK_LABEL = { relates: 'relates to', blocks: 'blocks', blocked_by: 'blocked by' };
 
@@ -574,6 +604,7 @@ Tasks (T…)
   keepr task add "title" [--desc D] [--prio urgent|high|normal|low] [--due YYYY-MM-DD]
                  [--status todo|in_progress|review|done] [--tag X]... [--sub S]... [--from A3 [--point 2]]
   keepr task list [--status S] [--tag X] [--all]  (without --all: hides done tasks)
+  keepr next                      what to do first: overdue, due within 7 days, urgent/high without due date
   keepr task show T3
   keepr task update T3 [--title] [--desc] [--prio] [--due|none] [--status] [--tag X]...
   keepr task start|review|done T3
@@ -702,6 +733,11 @@ const commands = {
   },
 
   serve({ opt }) { serve(Number(opt.port || PORT)); },
+
+  next({ opt }) {
+    const groups = nextTasks(readData(requireRoot()).tasks);
+    out(opt, groups, fmtNext(groups));
+  },
 
   mcp({ opt }) { mcpServer(opt.project); },
 };
@@ -903,8 +939,12 @@ function serve(port) {
         return;
       }
       if (!p || !allowed(p)) return send(res, 404, { error: 'Unknown project' });
-      if (url.pathname === '/api/data' && req.method === 'GET')
-        return send(res, 200, { root: p, ...readData(p), meta: { STATUSES, PRIORITIES, ANSWER_STATUSES, INBOX_STATUSES, LINK_TYPES } });
+      if (url.pathname === '/api/data' && req.method === 'GET') {
+        const data = readData(p);
+        // "Next up" is computed here so the dashboard uses the same selection as keepr next.
+        const next = Object.fromEntries(Object.entries(nextTasks(data.tasks)).map(([k, list]) => [k, list.map(t => t.id)]));
+        return send(res, 200, { root: p, ...data, next, meta: { STATUSES, PRIORITIES, ANSWER_STATUSES, INBOX_STATUSES, LINK_TYPES, NEXT_GROUPS } });
+      }
       if (url.pathname === '/api/op' && req.method === 'POST') {
         // Blocks cross-site requests from other websites.
         if (req.headers['x-keepr'] !== '1') return send(res, 403, { error: 'forbidden' });
@@ -1002,6 +1042,11 @@ const MCP_TOOLS = [
     name: 'list_tasks',
     description: 'Lists tasks (IDs T1, T2 …) with status, priority, due date and progress. Default: all that are not done.',
     inputSchema: { type: 'object', properties: { status: { type: 'string', enum: STATUSES }, tag: { type: 'string' }, all: { type: 'boolean' }, ...PROJECT_PROP } },
+  },
+  {
+    name: 'next_tasks',
+    description: 'What to do first: open tasks that are overdue, due within the next 7 days, or urgent/high priority without a due date – grouped, sorted by due date, priority, order.',
+    inputSchema: { type: 'object', properties: { ...PROJECT_PROP } },
   },
   {
     name: 'get_task',
@@ -1163,6 +1208,7 @@ function mcpTools(defaultProject) {
         || PRIORITIES.indexOf(x.priority) - PRIORITIES.indexOf(y.priority) || x.order - y.order);
       return list.map(fmtTask).join('\n') || '(no open tasks)';
     },
+    next_tasks(a) { return fmtNext(nextTasks(readData(root(a)).tasks)); },
     get_task(a) { const d = readData(root(a)); return showTask(getTask(d, a.id), d); },
     add_task(a) {
       const t = mutate(root(a), d => {

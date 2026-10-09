@@ -1,6 +1,6 @@
 {
   "name": "@mrgreenpepper/keepr",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Keep AI answers, an inbox of things to clarify and Kanban-style tasks in a local dashboard – CLI, dashboard server and MCP server for Claude Code and Claude Desktop.",
   "bin": {
     "keepr": "keepr.mjs",

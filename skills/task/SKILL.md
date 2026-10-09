@@ -12,6 +12,7 @@ All data lives in the project's `.keepr/data.json`; the dashboard updates live.
 
 ```bash
 keepr task list [--all] [--status todo|in_progress|review|done] [--tag X]
+keepr next                                # what to do first (overdue / due in 7 days / urgent+high without due)
 keepr task show T3
 keepr task add "Title" --desc "What & why, definition of done" --prio high --due 2026-10-20 \
     --tag backend --sub "Step 1" --sub "Step 2" [--from A4 [--point 2]]
@@ -35,6 +36,8 @@ Links show up in both tasks; a task that is `blocked_by` an unfinished task gets
 
 - **No arguments** (`/task`): run `keepr task list` and show the open tasks compactly
   (grouped by status, highlight overdue ones).
+- **"What's next" / "was steht an" / "was zuerst"**: run `keepr next` and show its three groups
+  (overdue, due within 7 days, urgent/high without a due date) in that order.
 - **New task**: title in the imperative ("Fix login bug"). Description with context and a
   definition of done. Split larger tasks into subtasks. Set priority and due date only if the
   user names them or they are obvious. Write in the language of the conversation.
