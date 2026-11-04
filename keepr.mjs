@@ -10,7 +10,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fs.realpathSync(fileURLToPath(import.meta.url)));
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 const PORT = Number(process.env.KEEPR_PORT || process.env.WF_PORT || 4747);
 const CONFIG_DIR = path.join(os.homedir(), '.config', 'keepr');
 const OLD_CONFIG_DIR = path.join(os.homedir(), '.config', 'wf'); // before the rename to keepr
