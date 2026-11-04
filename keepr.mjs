@@ -212,6 +212,7 @@ export const ops = {
       id: nextId(data, 'A'),
       title: a.title || firstLine(a.content) || 'Untitled',
       summary: a.summary || '',
+      origin: a.origin || '',
       prompt: a.prompt || '',
       content: a.content || '',
       session: a.session || null,
@@ -231,7 +232,7 @@ export const ops = {
   'answer.update'(data, { id, patch }) {
     const a = getAnswer(data, id);
     checkEnum(patch.status, ANSWER_STATUSES, 'status');
-    for (const k of ['title', 'summary', 'status', 'tags', 'notes', 'chatUrl']) if (patch[k] !== undefined) a[k] = patch[k];
+    for (const k of ['title', 'summary', 'origin', 'status', 'tags', 'notes', 'chatUrl']) if (patch[k] !== undefined) a[k] = patch[k];
     a.updatedAt = now();
     return a;
   },
@@ -259,12 +260,13 @@ export const ops = {
   'task.add'(data, t) {
     checkEnum(t.status, STATUSES, 'status');
     checkEnum(t.priority, PRIORITIES, 'priority');
-    if (t.answerId) getAnswer(data, t.answerId);
+    const ans = t.answerId ? getAnswer(data, t.answerId) : null;
     const status = t.status || 'todo';
     const task = {
       id: nextId(data, 'T'),
       title: t.title,
       description: t.description || '',
+      origin: t.origin || ans?.origin || '',
       status,
       priority: t.priority || 'normal',
       due: t.due || null,
@@ -295,7 +297,7 @@ export const ops = {
       if (patch.order === undefined)
         t.order = Math.max(0, ...data.tasks.filter(x => x.status === patch.status).map(x => x.order || 0)) + 1;
     }
-    for (const k of ['title', 'description', 'status', 'priority', 'due', 'tags', 'answerId', 'order'])
+    for (const k of ['title', 'description', 'origin', 'status', 'priority', 'due', 'tags', 'answerId', 'order'])
       if (patch[k] !== undefined) t[k] = patch[k];
     t.updatedAt = now();
     return t;
@@ -365,10 +367,10 @@ export const ops = {
     });
     return t;
   },
-  'inbox.add'(data, { title, notes, tags }) {
+  'inbox.add'(data, { title, notes, origin, tags }) {
     if (!title) throw new Error('Title missing');
     const item = {
-      id: nextId(data, 'I'), title, notes: notes || '', status: 'open', tags: tags || [], taskIds: [],
+      id: nextId(data, 'I'), title, notes: notes || '', origin: origin || '', status: 'open', tags: tags || [], taskIds: [],
       createdAt: now(), updatedAt: now(),
     };
     data.inbox.unshift(item);
@@ -377,7 +379,7 @@ export const ops = {
   'inbox.update'(data, { id, patch }) {
     const i = getInbox(data, id);
     checkEnum(patch.status, INBOX_STATUSES, 'status');
-    for (const k of ['title', 'notes', 'status', 'tags']) if (patch[k] !== undefined) i[k] = patch[k];
+    for (const k of ['title', 'notes', 'origin', 'status', 'tags']) if (patch[k] !== undefined) i[k] = patch[k];
     i.updatedAt = now();
     return i;
   },
@@ -390,7 +392,7 @@ export const ops = {
   'inbox.toTask'(data, { id, keepOpen, ...t }) {
     const i = getInbox(data, id);
     const task = ops['task.add'](data, {
-      ...t, title: t.title || i.title, description: t.description ?? i.notes, tags: t.tags || i.tags, inboxId: i.id,
+      ...t, title: t.title || i.title, description: t.description ?? i.notes, origin: t.origin || i.origin, tags: t.tags || i.tags, inboxId: i.id,
     });
     i.taskIds.push(task.id);
     if (!keepOpen) i.status = 'clarified';
@@ -540,6 +542,7 @@ function fmtInbox(i) {
 
 function showInbox(i) {
   const lines = [fmtInbox(i)];
+  if (i.origin) lines.push('', `Origin: ${i.origin}`);
   if (i.notes) lines.push('', i.notes);
   return lines.join('\n');
 }
@@ -552,6 +555,7 @@ function fmtAnswer(a) {
 
 function showTask(t, data) {
   const lines = [fmtTask(t)];
+  if (t.origin) lines.push('', `Origin: ${t.origin}`);
   if (t.description) lines.push('', t.description);
   const links = taskLinks(data, t);
   if (links.length) lines.push('', 'Links:', ...links.map(l => {
@@ -568,6 +572,7 @@ function showAnswer(a) {
   const lines = [`${a.id} – ${a.title}  (${a.status}, ${a.createdAt.slice(0, 16)})`];
   if (a.tags.length) lines.push(`Tags: ${a.tags.join(', ')}`);
   if (a.session) lines.push(`Session: ${a.session}`);
+  if (a.origin) lines.push('', '## Origin', a.origin);
   if (a.prompt) lines.push('', '## Question', a.prompt);
   lines.push('', '## Answer', a.content);
   if (a.points.length) lines.push('', '## Points', ...a.points.map(p => `${p.id}. [${p.done ? 'x' : ' '}] ${p.text}`));
@@ -590,23 +595,23 @@ Project
   keepr version                   print the version
 
 Answers (A…)
-  keepr save [--back N] [--title T] [--summary S] [--point P]... [--tag X]... [--full]
+  keepr save [--back N] [--title T] [--summary S] [--origin O] [--point P]... [--tag X]... [--full]
           Saves an AI answer from the current Claude transcript.
           --back 1 = previous answer (default inside Claude), 0 = latest.
           --stdin: read the content from stdin instead.  --session ID: another session.
   keepr answers [--status open|followup|done] [--all]
   keepr show A3                   full answer incl. question, points, notes
-  keepr answer A3 [--status S] [--title T] [--note N] [--tag X]
+  keepr answer A3 [--status S] [--title T] [--origin O] [--note N] [--tag X]
   keepr point A3 "text"           add a point
   keepr point A3 2 --done|--undone|--remove
 
 Tasks (T…)
-  keepr task add "title" [--desc D] [--prio urgent|high|normal|low] [--due YYYY-MM-DD]
+  keepr task add "title" [--desc D] [--origin O] [--prio urgent|high|normal|low] [--due YYYY-MM-DD]
                  [--status todo|in_progress|review|done] [--tag X]... [--sub S]... [--from A3 [--point 2]]
   keepr task list [--status S] [--tag X] [--all]  (without --all: hides done tasks)
   keepr next                      what to do first: overdue, due within 7 days, urgent/high without due date
   keepr task show T3
-  keepr task update T3 [--title] [--desc] [--prio] [--due|none] [--status] [--tag X]...
+  keepr task update T3 [--title] [--desc] [--origin] [--prio] [--due|none] [--status] [--tag X]...
   keepr task start|review|done T3
   keepr task sub T3 "text" [--desc D] [--status S]   add a subtask
   keepr task sub T3 2 --done|--undone|--remove|--status S|--desc D|--text T
@@ -617,15 +622,17 @@ Tasks (T…)
 
 Inbox (I…) – things to clarify before they become a task
   keepr inbox [list] [--status open|clarified|dropped] [--all]
-  keepr inbox add "what needs clarifying" [--note N] [--tag X]...
+  keepr inbox add "what needs clarifying" [--note N] [--origin O] [--tag X]...
   keepr inbox show I3
   keepr inbox note I3 "text"      append to the notes
-  keepr inbox update I3 [--title T] [--notes N] [--status S] [--tag X]...
+  keepr inbox update I3 [--title T] [--notes N] [--origin O] [--status S] [--tag X]...
   keepr inbox clarify|drop|reopen I3
-  keepr inbox task I3 [--title T] [--desc D] [--prio P] [--due D] [--sub S]... [--keep-open]
+  keepr inbox task I3 [--title T] [--desc D] [--origin O] [--prio P] [--due D] [--sub S]... [--keep-open]
                                   create a task from it (marks it clarified)
   keepr inbox rm I3
 
+--origin: background – which question or observation led to this item, so it is still
+understandable later. Tasks inherit it from their answer (--from) or inbox item.
 Everywhere: --json for machine-readable output.`;
 
 const commands = {
@@ -662,7 +669,7 @@ const commands = {
     }
     if (!entry.content) throw new Error('Empty content.');
     const a = mutate(root, d => ops['answer.add'](d, {
-      ...entry, title: opt.title, summary: opt.summary, tags: tagsOf(opt), points: opt.point,
+      ...entry, title: opt.title, summary: opt.summary, origin: opt.origin, tags: tagsOf(opt), points: opt.point,
     }));
     out(opt, a, `Saved: ${a.id} – ${a.title}${a.points.length ? ` (${a.points.length} points)` : ''}\n${dashUrl(root, a.id)}`);
   },
@@ -687,7 +694,7 @@ const commands = {
 
   answer({ pos, opt }) {
     const root = requireRoot();
-    const patch = { status: opt.status, title: opt.title, summary: opt.summary };
+    const patch = { status: opt.status, title: opt.title, summary: opt.summary, origin: opt.origin };
     if (opt.tag) patch.tags = tagsOf(opt);
     const a = mutate(root, d => {
       if (opt.note) {
@@ -750,7 +757,7 @@ const taskCommands = {
       let title = pos.join(' ');
       if (!title && answerPoint) title = getItem(getAnswer(d, opt.from).points, answerPoint, 'Point').text;
       const task = ops['task.add'](d, {
-        title, description: opt.desc, priority: opt.prio, due: opt.due, status: opt.status,
+        title, description: opt.desc, origin: opt.origin, priority: opt.prio, due: opt.due, status: opt.status,
         tags: tagsOf(opt), subtasks: opt.sub, answerId: opt.from, answerPoint,
       });
       return task;
@@ -774,7 +781,7 @@ const taskCommands = {
   },
   update({ pos, opt }) {
     const patch = {
-      title: opt.title, description: opt.desc, priority: opt.prio, status: opt.status,
+      title: opt.title, description: opt.desc, origin: opt.origin, priority: opt.prio, status: opt.status,
       due: opt.due === 'none' ? null : opt.due,
     };
     if (opt.tag) patch.tags = tagsOf(opt);
@@ -831,7 +838,7 @@ const inboxCommands = {
     out(opt, list, list.map(fmtInbox).join('\n') || '(inbox empty)');
   },
   add({ pos, opt }) {
-    const i = mutate(requireRoot({ create: true }), d => ops['inbox.add'](d, { title: pos.join(' '), notes: opt.note, tags: tagsOf(opt) }));
+    const i = mutate(requireRoot({ create: true }), d => ops['inbox.add'](d, { title: pos.join(' '), notes: opt.note, origin: opt.origin, tags: tagsOf(opt) }));
     out(opt, i, `Added: ${fmtInbox(i)}`);
   },
   show({ pos, opt }) {
@@ -847,7 +854,7 @@ const inboxCommands = {
     out(opt, i, showInbox(i));
   },
   update({ pos, opt }) {
-    const patch = { title: opt.title, notes: opt.notes, status: opt.status };
+    const patch = { title: opt.title, notes: opt.notes, origin: opt.origin, status: opt.status };
     if (opt.tag) patch.tags = tagsOf(opt);
     const i = mutate(requireRoot(), d => ops['inbox.update'](d, { id: pos[0], patch }));
     out(opt, i, fmtInbox(i));
@@ -857,7 +864,7 @@ const inboxCommands = {
   reopen: (a) => setInboxStatus(a, 'open'),
   task({ pos, opt }) {
     const t = mutate(requireRoot(), d => ops['inbox.toTask'](d, {
-      id: pos[0], keepOpen: opt['keep-open'], title: opt.title, description: opt.desc, priority: opt.prio,
+      id: pos[0], keepOpen: opt['keep-open'], title: opt.title, description: opt.desc, origin: opt.origin, priority: opt.prio,
       due: opt.due, status: opt.status, tags: opt.tag ? tagsOf(opt) : undefined, subtasks: opt.sub,
     }));
     out(opt, t, `Created: ${fmtTask(t)}`);
@@ -977,6 +984,7 @@ const LINKS = (description) => ({
   type: 'array', description,
   items: { type: 'object', properties: { task: STR('e.g. T5'), type: { type: 'string', enum: LINK_TYPES, description: 'relates (default), blocks = this task blocks the other one, blocked_by = this task waits for the other one' } }, required: ['task'] },
 });
+const ORIGIN = (what) => STR(`Origin/background: which question, observation or discussion led to this ${what}, in 1–3 sentences, so the user still understands later why the idea came up. Fill it whenever the context shows it; if the reasoning behind it is unclear, ask the user instead of guessing.`);
 const SUBTASKS = (description) => ({
   type: 'array', description,
   items: { anyOf: [{ type: 'string' }, { type: 'object', properties: { text: { type: 'string' }, description: { type: 'string' }, status: { type: 'string', enum: STATUSES } }, required: ['text'] }] },
@@ -997,6 +1005,7 @@ const MCP_TOOLS = [
         title: STR('Short, descriptive title (≤ 60 characters)'),
         content: STR('The answer text as Markdown'),
         summary: STR('One sentence: what it is about and what is still open'),
+        origin: ORIGIN('answer'),
         prompt: STR('The user question the answer refers to'),
         points: STRS('Individual points/open questions the user wants to come back to'),
         tags: STRS('Tags'),
@@ -1022,7 +1031,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        id: STR('e.g. A3'), status: { type: 'string', enum: ANSWER_STATUSES }, title: { type: 'string' }, summary: { type: 'string' },
+        id: STR('e.g. A3'), status: { type: 'string', enum: ANSWER_STATUSES }, title: { type: 'string' }, summary: { type: 'string' }, origin: ORIGIN('answer'),
         tags: STRS('replaces the tags'), note: STR('appended to the notes'), chat_url: { type: 'string' },
         add_points: STRS('new points'), ...PROJECT_PROP,
       },
@@ -1059,7 +1068,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        title: { type: 'string' }, description: STR('Markdown'),
+        title: { type: 'string' }, description: STR('Markdown'), origin: ORIGIN('task (defaults to the origin of from_answer)'),
         priority: { type: 'string', enum: PRIORITIES }, status: { type: 'string', enum: STATUSES },
         due: STR('YYYY-MM-DD'), tags: STRS('Tags'), subtasks: SUBTASKS('Subtasks: a title, or { text, description, status }'),
         links: LINKS('Links to other tasks'),
@@ -1073,7 +1082,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        id: STR('e.g. T3'), title: { type: 'string' }, description: { type: 'string' },
+        id: STR('e.g. T3'), title: { type: 'string' }, description: { type: 'string' }, origin: ORIGIN('task'),
         status: { type: 'string', enum: STATUSES }, priority: { type: 'string', enum: PRIORITIES },
         due: STR('YYYY-MM-DD or "" to clear'), tags: STRS('replaces the tags'),
         add_subtasks: SUBTASKS('new subtasks: a title, or { text, description, status }'), comment: STR('Comment, e.g. what was done'),
@@ -1112,14 +1121,14 @@ const MCP_TOOLS = [
   {
     name: 'add_inbox_item',
     description: 'Puts something into the inbox that still needs clarifying before it can become a task (open question, idea, "check whether …"). Use for "noch klären", "note that for later", "add to inbox", or when the user is unsure whether something is a task yet.',
-    inputSchema: { type: 'object', properties: { title: STR('What needs clarifying, as a short question or note'), notes: STR('Context, Markdown'), tags: STRS('Tags'), ...PROJECT_PROP }, required: ['title'] },
+    inputSchema: { type: 'object', properties: { title: STR('What needs clarifying, as a short question or note'), notes: STR('Context, Markdown'), origin: ORIGIN('inbox item'), tags: STRS('Tags'), ...PROJECT_PROP }, required: ['title'] },
   },
   {
     name: 'update_inbox_item',
     description: 'Updates an inbox item: title, status (open, clarified, dropped), tags; note appends to the notes.',
     inputSchema: {
       type: 'object',
-      properties: { id: STR('e.g. I3'), title: { type: 'string' }, status: { type: 'string', enum: INBOX_STATUSES }, tags: STRS('replaces the tags'), note: STR('appended to the notes'), ...PROJECT_PROP },
+      properties: { id: STR('e.g. I3'), title: { type: 'string' }, origin: ORIGIN('inbox item'), status: { type: 'string', enum: INBOX_STATUSES }, tags: STRS('replaces the tags'), note: STR('appended to the notes'), ...PROJECT_PROP },
       required: ['id'],
     },
   },
@@ -1129,7 +1138,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        id: STR('e.g. I3'), title: { type: 'string' }, description: STR('Markdown'), priority: { type: 'string', enum: PRIORITIES },
+        id: STR('e.g. I3'), title: { type: 'string' }, description: STR('Markdown'), origin: ORIGIN('task (defaults to the origin of the inbox item)'), priority: { type: 'string', enum: PRIORITIES },
         due: STR('YYYY-MM-DD'), tags: STRS('Tags'), subtasks: SUBTASKS('Subtasks'), keep_open: { type: 'boolean' }, ...PROJECT_PROP,
       },
       required: ['id'],
@@ -1171,7 +1180,7 @@ function mcpTools(defaultProject) {
     save_answer(a) {
       const r = root(a);
       const ans = mutate(r, d => ops['answer.add'](d, {
-        title: a.title, content: a.content, summary: a.summary, prompt: a.prompt, points: a.points,
+        title: a.title, content: a.content, summary: a.summary, origin: a.origin, prompt: a.prompt, points: a.points,
         tags: a.tags, chatUrl: a.chat_url, source: 'mcp',
       }));
       return `Saved: ${ans.id} – ${ans.title}${ans.points.length ? ` (${ans.points.length} points)` : ''}\n${dashUrl(r, ans.id)}`;
@@ -1187,7 +1196,7 @@ function mcpTools(defaultProject) {
     update_answer(a) {
       const ans = mutate(root(a), d => {
         const cur = getAnswer(d, a.id);
-        const patch = { status: a.status, title: a.title, summary: a.summary, tags: a.tags, chatUrl: a.chat_url };
+        const patch = { status: a.status, title: a.title, summary: a.summary, origin: a.origin, tags: a.tags, chatUrl: a.chat_url };
         if (a.note) patch.notes = cur.notes ? `${cur.notes}\n${a.note}` : a.note;
         for (const t of a.add_points || []) ops['answer.point.add'](d, { id: a.id, text: t });
         return ops['answer.update'](d, { id: a.id, patch });
@@ -1215,7 +1224,7 @@ function mcpTools(defaultProject) {
         let title = a.title;
         if (!title && a.from_answer && a.from_point) title = getItem(getAnswer(d, a.from_answer).points, a.from_point, 'Point').text;
         return ops['task.add'](d, {
-          title, description: a.description, priority: a.priority, status: a.status, due: a.due || undefined,
+          title, description: a.description, origin: a.origin, priority: a.priority, status: a.status, due: a.due || undefined,
           tags: a.tags, subtasks: a.subtasks, answerId: a.from_answer, answerPoint: a.from_point ?? null, links: a.links,
         });
       });
@@ -1225,7 +1234,7 @@ function mcpTools(defaultProject) {
       let data;
       const t = mutate(root(a), d => {
         data = d;
-        const patch = { title: a.title, description: a.description, status: a.status, priority: a.priority, tags: a.tags };
+        const patch = { title: a.title, description: a.description, origin: a.origin, status: a.status, priority: a.priority, tags: a.tags };
         if (a.due !== undefined) patch.due = a.due || null;
         ops['task.update'](d, { id: a.id, patch });
         for (const s of a.add_subtasks || []) ops['task.sub.add'](d, { id: a.id, ...(typeof s === 'string' ? { text: s } : s) });
@@ -1254,12 +1263,12 @@ function mcpTools(defaultProject) {
     get_inbox_item(a) { return showInbox(getInbox(readData(root(a)), a.id)); },
     add_inbox_item(a) {
       const r = root(a);
-      const i = mutate(r, d => ops['inbox.add'](d, { title: a.title, notes: a.notes, tags: a.tags }));
+      const i = mutate(r, d => ops['inbox.add'](d, { title: a.title, notes: a.notes, origin: a.origin, tags: a.tags }));
       return `Added: ${fmtInbox(i)}\n${dashUrl(r, i.id)}`;
     },
     update_inbox_item(a) {
       const i = mutate(root(a), d => {
-        const patch = { title: a.title, status: a.status, tags: a.tags };
+        const patch = { title: a.title, origin: a.origin, status: a.status, tags: a.tags };
         if (a.note) { const cur = getInbox(d, a.id).notes; patch.notes = cur ? `${cur}\n${a.note}` : a.note; }
         return ops['inbox.update'](d, { id: a.id, patch });
       });
@@ -1267,7 +1276,7 @@ function mcpTools(defaultProject) {
     },
     inbox_to_task(a) {
       const t = mutate(root(a), d => ops['inbox.toTask'](d, {
-        id: a.id, keepOpen: a.keep_open, title: a.title, description: a.description, priority: a.priority,
+        id: a.id, keepOpen: a.keep_open, title: a.title, description: a.description, origin: a.origin, priority: a.priority,
         due: a.due || undefined, tags: a.tags, subtasks: a.subtasks,
       }));
       return `Created: ${fmtTask(t)}`;
@@ -1300,7 +1309,7 @@ function mcpServer(defaultProject = process.env.KEEPR_PROJECT || process.env.WF_
           protocolVersion: params?.protocolVersion || '2025-06-18',
           capabilities: { tools: {} },
           serverInfo: pkg,
-          instructions: 'keepr keeps, per project, a list of saved AI answers (A1, A2 …, with points that can be checked off), an inbox of things still to clarify (I1, I2 …) and Kanban-style tasks (T1, T2 …, with subtasks and links between tasks). The user sees everything live in the dashboard. On "keep this" / "merk dir das" → save_answer; "still needs clarifying" / "noch klären" → add_inbox_item; when an ID is referenced → get_answer/get_task/get_inbox_item; record progress with update_*. After changes, reply briefly with the affected IDs.',
+          instructions: 'keepr keeps, per project, a list of saved AI answers (A1, A2 …, with points that can be checked off), an inbox of things still to clarify (I1, I2 …) and Kanban-style tasks (T1, T2 …, with subtasks and links between tasks). The user sees everything live in the dashboard. On "keep this" / "merk dir das" → save_answer; "still needs clarifying" / "noch klären" → add_inbox_item; when an ID is referenced → get_answer/get_task/get_inbox_item; record progress with update_*. Give every new answer, task and inbox item an origin (which question or observation led to it); if the reasoning behind it is unclear, ask the user. After changes, reply briefly with the affected IDs.',
         } });
       }
       if (method === 'ping') return send({ id, result: {} });

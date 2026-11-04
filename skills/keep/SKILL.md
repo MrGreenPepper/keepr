@@ -6,7 +6,7 @@ description: Saves an AI answer from the current conversation to the keepr dashb
 # Keep an answer
 
 Saves an answer with the `keepr` CLI. The text is taken **automatically from the Claude transcript**,
-so you don't have to retype it. You only provide the title, summary and points.
+so you don't have to retype it. You only provide the title, summary, origin and points.
 
 ## Steps
 
@@ -18,12 +18,14 @@ so you don't have to retype it. You only provide the title, summary and points.
    or step the user might want to come back to individually, as a short sentence (≤ 120 characters).
    If the user named specific points or a follow-up question in the arguments, use exactly those.
    For an answer without clearly separable points: no points.
-3. Run it (one Bash call). Write title, summary and points in the language of the conversation.
+3. **Origin**: always pass `--origin` – which question, observation or discussion led to it, in 1–3 sentences, so the user still understands later why the idea came up. If the reasoning behind it is unclear from the conversation, ask the user instead of guessing.
+4. Run it (one Bash call). Write title, summary, origin and points in the language of the conversation.
 
 ```bash
 keepr save --back 1 \
   --title "Short, descriptive title (≤ 60 characters)" \
   --summary "One sentence: what it is about and what is still open" \
+  --origin "Which question or observation led to this answer" \
   --point "First point" --point "Second point" \
   --tag topic
 ```

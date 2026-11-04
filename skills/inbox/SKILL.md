@@ -14,7 +14,7 @@ has to answer first. Items get IDs `I1`, `I2` …. Once an item is clear, it bec
 
 ```bash
 keepr inbox                                   # open items (--all, --status open|clarified|dropped)
-keepr inbox add "Short question or note" --note "Context, who to ask" --tag docs
+keepr inbox add "Short question or note" --note "Context, who to ask" --origin "What led to it" --tag docs
 keepr inbox show I3
 keepr inbox note I3 "What we found out"       # appends to the notes
 keepr inbox update I3 --title "…" --notes "replaces the notes"
@@ -33,6 +33,7 @@ keepr inbox rm I3
 - **Capture**: title as the open question or the unclear point ("Clarify: which licence
   applies to the images?"). Put context, options and who could answer it into `--note`.
   Write in the language of the conversation.
+- **Origin**: always pass `--origin` – which question, observation or discussion led to it, in 1–3 sentences, so the user still understands later why the idea came up. If the reasoning behind it is unclear from the conversation, ask the user instead of guessing.
 - **While clarifying**: record findings with `keepr inbox note I<n> "…"`. When the question is
   answered and nothing needs doing, `keepr inbox clarify I<n>`; if it no longer matters, `drop`.
 - **When it becomes actionable**: `keepr inbox task I<n>` with a proper imperative title, a

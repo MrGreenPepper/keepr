@@ -14,7 +14,7 @@ All data lives in the project's `.keepr/data.json`; the dashboard updates live.
 keepr task list [--all] [--status todo|in_progress|review|done] [--tag X]
 keepr next                                # what to do first (overdue / due in 7 days / urgent+high without due)
 keepr task show T3
-keepr task add "Title" --desc "What & why, definition of done" --prio high --due 2026-10-20 \
+keepr task add "Title" --desc "What & why, definition of done" --origin "What led to it" --prio high --due 2026-10-20 \
     --tag backend --sub "Step 1" --sub "Step 2" [--from A4 [--point 2]]
 keepr task update T3 --status in_progress --prio urgent --due none --title "…" --desc "…"
 keepr task start T3 | keepr task review T3 | keepr task done T3 T4
@@ -41,6 +41,7 @@ Links show up in both tasks; a task that is `blocked_by` an unfinished task gets
 - **New task**: title in the imperative ("Fix login bug"). Description with context and a
   definition of done. Split larger tasks into subtasks. Set priority and due date only if the
   user names them or they are obvious. Write in the language of the conversation.
+- **Origin**: always pass `--origin` – which question, observation or discussion led to it, in 1–3 sentences, so the user still understands later why the idea came up. If the reasoning behind it is unclear from the conversation, ask the user instead of guessing. With `--from A<n>` or `keepr inbox task` the task inherits the origin of the answer / inbox item unless you pass one.
 - If the task comes from a saved answer, set `--from A<n>` (and `--point <nr>` if applicable).
   If it comes from an inbox item, use `keepr inbox task I<n>` instead of `keepr task add`.
 - Dependencies: if a task can only start after another one, link it with `--type blocked_by`;

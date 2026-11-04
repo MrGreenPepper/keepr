@@ -468,7 +468,7 @@ function renderAnswers() {
   const f = state.aFilter;
   const list = d.answers
     .filter(a => f === 'all' || (f === 'active' ? a.status !== 'done' : a.status === f))
-    .filter(a => matches(a, ['id', 'title', 'summary', 'content', 'prompt', 'notes']) || a.tags.some(t => t.includes(state.q)));
+    .filter(a => matches(a, ['id', 'title', 'summary', 'origin', 'content', 'prompt', 'notes']) || a.tags.some(t => t.includes(state.q)));
   const sel = d.answers.find(a => a.id === state.sel);
   const counts = { active: d.answers.filter(a => a.status !== 'done').length, followup: d.answers.filter(a => a.status === 'followup').length };
 
@@ -527,6 +527,7 @@ function answerDetail(a) {
       <button class="btn ghost danger" id="a-del">Delete</button>
     </div>
     ${a.summary ? `<div class="card" style="background:var(--accent-soft);border-color:transparent;box-shadow:none">${esc(a.summary)}</div>` : ''}
+    <div class="section"><h3>Origin</h3>${editableMd('a-origin', a.origin || '', 'Which question or observation led to this? So you still understand later why the idea came up.')}</div>
     <div class="section"><h3>Open points <span class="muted" style="text-transform:none;letter-spacing:0">${a.points.filter(p => p.done).length}/${a.points.length}</span></h3>
       <div id="points">${a.points.map(p => {
         const t = tasks.find(x => x.answerPoint === p.id);
@@ -549,6 +550,7 @@ function bindAnswerDetail(a) {
   $('#a-title').onchange = (e) => op('answer.update', { id: a.id, patch: { title: e.target.value } });
   $('#a-status').onchange = (e) => op('answer.update', { id: a.id, patch: { status: e.target.value } });
   $('#a-notes').onchange = (e) => op('answer.update', { id: a.id, patch: { notes: e.target.value } });
+  bindEditable($('.adetail'), (_, v) => op('answer.update', { id: a.id, patch: { origin: v } }));
   $('#copy-content').onclick = () => copy(a.content);
   $('#copy-ref').onclick = () => copy(`/ref ${a.id} `, `"/ref ${a.id}" copied, paste it into Claude`);
   if ($('#copy-resume')) $('#copy-resume').onclick = () => copy(`claude --resume ${a.session}`);
@@ -558,7 +560,7 @@ function bindAnswerDetail(a) {
   };
   $('#a-del').onclick = () => { if (confirm(`Delete ${a.id}?`)) { state.sel = null; op('answer.delete', { id: a.id }); } };
   $('#a-task').onclick = async () => {
-    const t = await op('task.add', { title: a.title, description: a.summary || '', answerId: a.id });
+    const t = await op('task.add', { title: a.title, description: a.summary || '', origin: a.origin || '', answerId: a.id });
     openTask(t.id);
   };
   $('#p-add').onsubmit = (e) => { e.preventDefault(); const v = e.target[0].value.trim(); if (v) op('answer.point.add', { id: a.id, text: v }); };
@@ -589,7 +591,7 @@ function renderInbox() {
   const f = state.iFilter;
   const list = d.inbox
     .filter(i => f === 'all' || i.status === f)
-    .filter(i => matches(i, ['id', 'title', 'notes']) || i.tags.some(t => t.includes(state.q)));
+    .filter(i => matches(i, ['id', 'title', 'origin', 'notes']) || i.tags.some(t => t.includes(state.q)));
   const sel = d.inbox.find(i => i.id === state.isel);
   const n = (s) => d.inbox.filter(i => i.status === s).length;
 
@@ -648,6 +650,7 @@ function inboxDetail(i) {
       <button class="btn ghost danger" id="i-del">Delete</button>
     </div>
     <div class="props" style="margin-top:0"><label>Tags</label><input class="input" id="i-tags" value="${esc(i.tags.join(', '))}" placeholder="comma-separated"></div>
+    <div class="section"><h3>Origin</h3>${editableMd('i-origin', i.origin || '', 'Which question or observation led to this? So you still understand later why the idea came up.')}</div>
     <div class="section"><h3>Notes</h3>${editableMd('i-notes', i.notes, 'What do you know so far, who to ask, what is unclear… (Markdown, T5/A3 become links)')}</div>
     ${tasks.length ? `<div class="section"><h3>Tasks from this</h3>${tasks.map(t => `<div class="check" data-s="${t.status}"><span class="sdot" style="margin-top:6px"></span><span class="txt"><a href="#" data-ref="${t.id}">${esc(t.title)}</a> <span class="id">${t.id}</span></span><span class="muted" style="font-size:12px">${LABEL[t.status]}</span></div>`).join('')}</div>` : ''}`;
 }
@@ -658,7 +661,7 @@ function bindInboxDetail(i) {
   $('#i-title').onchange = (e) => upd({ title: e.target.value });
   $('#i-status').onchange = (e) => upd({ status: e.target.value });
   $('#i-tags').onchange = (e) => upd({ tags: e.target.value.split(',').map(x => x.trim()).filter(Boolean) });
-  bindEditable($('.adetail'), (_, v) => upd({ notes: v }));
+  bindEditable($('.adetail'), (k, v) => upd(k === 'i-origin' ? { origin: v } : { notes: v }));
   $('#i-copy').onclick = () => copy(`Regarding inbox item ${i.id} ("${i.title}"), see \`keepr show ${i.id}\`: `, 'Reference copied');
   $('#i-del').onclick = () => { if (confirm(`Delete ${i.id}?`)) { state.isel = null; op('inbox.delete', { id: i.id }); } };
   $('#i-task').onclick = async () => { const t = await op('inbox.toTask', { id: i.id }); openTask(t.id); };
@@ -673,7 +676,7 @@ function selectInbox(id) {
 // ------------------------------------------------------------ tasks
 function visibleTasks() {
   return state.data.tasks
-    .filter(t => matches(t, ['id', 'title', 'description']) || t.tags.some(x => x.includes(state.q))
+    .filter(t => matches(t, ['id', 'title', 'origin', 'description']) || t.tags.some(x => x.includes(state.q))
       || t.subtasks.some(x => x.text.toLowerCase().includes(state.q)))
     .sort((a, b) => (a.order || 0) - (b.order || 0));
 }
@@ -832,6 +835,7 @@ function renderDrawer(force = false) {
       ${inb ? `<label>From inbox</label><span><a href="#" data-ref="${inb.id}">${inb.id} – ${esc(inb.title)}</a></span>` : ''}
       ${t.pomodoros ? `<label>Focus</label><span>🍅 ${t.pomodoros} pomodoro${t.pomodoros === 1 ? '' : 's'} · ${t.focusMinutes || 0} min</span>` : ''}
     </div>
+    <div class="section"><h3>Origin</h3>${editableMd('t-origin', t.origin || '', 'Which question or observation led to this? So you still understand later why the idea came up.')}</div>
     <div class="section"><h3>Description</h3>
       ${editableMd('t-desc', t.description, 'Details, context, definition of done… (Markdown, T5/A3/I2 become links)')}</div>
     <div class="section"><h3>Subtasks <span class="muted" style="text-transform:none;letter-spacing:0">${done}/${t.subtasks.length}</span></h3>
@@ -885,7 +889,7 @@ function renderDrawer(force = false) {
   $('#t-prio').onchange = (e) => upd({ priority: e.target.value });
   $('#t-due').onchange = (e) => upd({ due: e.target.value || null });
   $('#t-tags').onchange = (e) => upd({ tags: e.target.value.split(',').map(x => x.trim()).filter(Boolean) });
-  bindEditable($('#drawer'), (_, v) => upd({ description: v }));
+  bindEditable($('#drawer'), (k, v) => upd(k === 't-origin' ? { origin: v } : { description: v }));
   $('#s-add').onsubmit = (e) => { e.preventDefault(); const v = e.target[0].value.trim(); if (v) op('task.sub.add', { id: t.id, text: v }).then(() => $('#s-add input')?.focus()); };
   $('#c-add').onsubmit = (e) => { e.preventDefault(); const v = e.target[0].value.trim(); if (v) op('task.comment', { id: t.id, text: v }); };
   $('#subs').onclick = (e) => {
