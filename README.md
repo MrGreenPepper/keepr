@@ -8,10 +8,38 @@ A local dashboard for working with AI agents (Claude Code, Claude Desktop). No d
 - **Jump back**: "↩ Jump to session" reopens exactly that conversation in VS Code with a follow-up already prepared. "＋ Follow-up in new session" starts a new conversation with the answer as context.
 - **Inbox**: a place for things that still need clarifying before they become a task (open questions, unclear ideas). Collect notes on them, and once they're clear, turn them into a task with one click.
 - **Kanban-style tasks**: board and list views, status, priority, due date, tags, comments and a link to the answer or inbox item a task came from. Subtasks have their own status and description. Tasks can be linked to each other (related, blocks, blocked by). The AI manages everything via the CLI or MCP, and the dashboard updates live.
+- **Origin**: answers, tasks and inbox items can record which question or observation led to them, so you still understand later why an idea came up. Tasks inherit it from the answer or inbox item they come from, and the AI is asked to fill it in (or to ask you if the reasoning is unclear).
 - **Pomodoro timer**: a focus timer in the dashboard that counts finished focus sessions on the task you're working on.
+
+## How it works
+
+<sub>[↑ Back to top](#top)</sub>
+
+keepr is installed **once** per machine and used from **any number of projects**. The program is central, the data is not: every project keeps its own data in its own folder.
+
+```
+                 keepr.mjs  (one program, installed once)
+      ┌──────────────┬──────────────┬───────────────────┐
+      │ CLI          │ dashboard    │ MCP server        │
+      │ keepr …      │ server       │ keepr mcp         │
+      │ (you, any AI)│ :4747        │ (any MCP client)  │
+      └──────┬───────┴──────┬───────┴─────────┬─────────┘
+             │ same operations, same files    │
+             ▼                                ▼
+   ~/.config/keepr/projects.json     <project>/.keepr/data.json
+   (registry: which projects exist)  (answers, inbox, tasks of that project)
+```
+
+- **One program, three ways in.** `keepr.mjs` is a single file without dependencies. It is the CLI, the dashboard server and the MCP server at the same time, and all three run the same operations on the same files. Whatever the AI changes via CLI or MCP shows up in the dashboard right away.
+- **Data per project.** Each project has its own `.keepr/data.json` in its root folder (git root or the folder you started in). Commit it with the project or ignore it, your choice. Never edit it by hand, always go through `keepr`.
+- **Central registry.** `~/.config/keepr/projects.json` only lists which projects exist (name and path), no content. A project is added to it automatically the first time keepr touches it.
+- **Which project is used?** The CLI and the skills search upward from the current folder for a `.keepr/` folder, so subfolders share their repository's project. The MCP server has no working folder and takes a `project` name or path instead. Details in [Multiple projects](#multiple-projects).
+- **Dashboard server.** `keepr dash` starts one local server (`127.0.0.1:4747`, only reachable from your machine) if none is running and opens the browser. One server serves all registered projects, you switch between them in the header. It watches the data files and pushes changes to open tabs live.
+- **AI integrations are add-ons.** The Claude Code plugin (skills like `/task`) and the Claude Desktop MCP entry just call `keepr`. Any other agent that can run a shell command or speak MCP can use keepr the same way.
 
 ## Contents
 
+- [How it works](#how-it-works)
 - [Installation](#installation)
   - [1. Claude Code plugin](#1-claude-code-plugin)
   - [2. npm package (the keepr command)](#2-npm-package-the-keepr-command)
@@ -206,7 +234,7 @@ Each project has its own `.keepr/data.json` with its own answers and tasks. Whic
 `keepr help` shows all commands. The most important ones:
 
 ```bash
-keepr save --back 1 --title "…" --summary "…" --point "…" --tag x   # answer from the transcript
+keepr save --back 1 --title "…" --summary "…" --origin "…" --point "…" --tag x   # answer from the transcript
 keepr answers | keepr show A3 | keepr point A3 2 --done | keepr answer A3 --status followup
 keepr task add "Title" --prio high --due 2026-10-20 --sub "…" --from A3
 keepr task list | keepr task start T1 | keepr task sub T1 2 --done | keepr task comment T1 "…" | keepr task done T1
@@ -236,7 +264,7 @@ MCP (Model Context Protocol) is an open standard for connecting AI apps to exter
 
 | Tool | Purpose |
 |---|---|
-| `save_answer` | Save an answer with title, summary, points and an optional chat link |
+| `save_answer` | Save an answer with title, summary, origin, points and an optional chat link |
 | `list_answers`, `get_answer` | List saved answers or load one in full |
 | `update_answer`, `update_answer_point` | Set status, notes and new points; check off points |
 | `list_tasks`, `get_task` | List tasks or load one in full |
