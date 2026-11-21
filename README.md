@@ -230,7 +230,7 @@ The 🍅 button in the header opens the timer window: phase switch, the time, St
 
 Click **keepr** in the header. Categories are on the left, their options on the right. Settings are stored per browser.
 
-- **Appearance**: theme (*Light*, *Dark* or *System*) and spacing (*compact* to *spacious*), which scales the padding of lists, cards and windows.
+- **Appearance**: theme (*Light*, *Dark* or *System*), timer font (*Script* – Sacramento, the default – *Rounded*, *System* or *Monospace*) and spacing (*compact* to *spacious*), which scales the padding of lists, cards and windows.
 - **Pomodoro timer**
   - **Idle timer**: turn the idle focus view on or off, set the idle time, and optionally blur the page behind it (five strength levels).
   - **Vines**: turn the vines on or off, set *Amount*, *Branching* and *Evenness* (scattered to evenly spaced), and toggle *Depth* and *Cracks*. Each of the three sliders has a mode: *Fixed* uses the value as set, *Vary* picks a value within a ± range around it for every focus phase, *Random* picks any value per phase.
@@ -337,7 +337,8 @@ The desktop app is only available for macOS and Windows. On Linux, use VS Code o
 <sub>[↑ Back to top](#top)</sub>
 
 - `keepr.mjs`: CLI, HTTP server for the dashboard (`127.0.0.1` only) and MCP server (`keepr mcp`)
-- `dashboard.html`: the UI
+- `dashboard.html`: the UI (the Sacramento timer font is embedded, so the dashboard never loads anything from the internet)
+- `fonts/Sacramento-OFL.txt`: licence of the embedded Sacramento font (SIL Open Font License 1.1)
 - `skills/`: Claude skills
 - `.claude-plugin/`: plugin and marketplace manifests for Claude Code
 - `package.json`: npm package definition (`keepr` and `ke` commands)

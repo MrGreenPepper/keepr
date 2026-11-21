@@ -9,6 +9,7 @@
   "files": [
     "keepr.mjs",
     "dashboard.html",
+    "fonts/",
     "README.md"
   ],
   "engines": {
