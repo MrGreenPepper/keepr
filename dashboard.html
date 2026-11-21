@@ -335,7 +335,43 @@ a.ref.done { text-decoration: line-through; opacity: .7; }
 .pomo-plant .leaf { fill: var(--ok); opacity: .85; }
 .pomo-plant .bloom circle { fill: var(--bloom, #f3b3c4); }
 .pomo-plant .bloom circle.c { fill: var(--bloom-c, #f2cf6b); }
-@media (prefers-reduced-motion: reduce) { .pomo-big, .pomo-veil, .pomo-plant * { transition: none; } }
+/* surprise mode: ASCII vines (canvas) and a kitten playing with a blossom */
+.pomo-ascii { position: absolute; inset: 0; width: 100%; height: 100%; }
+.pomo-ascii[hidden], .pomo-kitten[hidden] { display: none; }
+.pomo-big.ascii { --timer-font: ui-monospace, SFMono-Regular, Menlo, monospace; --timer-scale: .9; }
+.pomo-kitten { position: absolute; bottom: 0; left: max(8px, calc(50% - 440px)); width: min(320px, 55vw); filter: drop-shadow(2px 5px 5px rgba(0,0,0,.45)); }
+.pomo-kitten svg { display: block; width: 100%; overflow: visible; }
+.pomo-kitten .k-fur { fill: #e9a15b; } .pomo-kitten .k-dk { fill: #d48a45; }
+.pomo-kitten .k-belly { fill: #f6dcb8; } .pomo-kitten .k-ear { fill: #f2a7b4; } .pomo-kitten .k-nose { fill: #e7849a; }
+.pomo-kitten .k-stripe { fill: none; stroke: #c27434; stroke-width: 2.4; stroke-linecap: round; }
+.pomo-kitten .k-tail { fill: none; stroke: #e9a15b; stroke-width: 9; stroke-linecap: round; transform-box: view-box; transform-origin: 44px 124px; animation: k-tail 2.6s ease-in-out infinite; }
+.pomo-kitten .k-eyes ellipse { fill: #2b2a26; transform-box: fill-box; transform-origin: center; animation: k-blink 5s 2s infinite; }
+.pomo-kitten .k-mouth, .pomo-kitten .k-wh { fill: none; stroke: #6b4a2e; stroke-width: 1.2; stroke-linecap: round; }
+.pomo-kitten .k-wh { stroke: rgba(80,60,40,.55); }
+.pomo-kitten .k-cat { animation: k-walk 3.2s cubic-bezier(.3,.7,.4,1) both; }
+.pomo-kitten .k-hop { animation: k-hop .4s ease-in-out 8 both; }
+.pomo-kitten .k-head { transform-box: view-box; transform-origin: 100px 100px; animation: k-look 1.2s 4.6s ease-in-out both; }
+.pomo-kitten .k-paw { transform-box: view-box; transform-origin: 105px 114px; animation: k-bat 1.8s 8.2s ease-in-out infinite; }
+.pomo-kitten .k-stem { fill: none; stroke: color-mix(in srgb, var(--ok) 70%, var(--text)); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 1; animation: k-grow 2.4s 3.4s ease-out both; }
+.pomo-kitten .k-lf { fill: var(--ok); transform-box: fill-box; transform-origin: left center; animation: k-pop .8s 4.6s cubic-bezier(.34,1.56,.64,1) both; }
+.pomo-kitten .k-lf + .k-lf { transform-origin: left center; animation-delay: 5.2s; }
+.pomo-kitten .k-bloom > g { transform: scale(1); animation: k-open 1.2s 6s cubic-bezier(.34,1.56,.64,1) both; }
+.pomo-kitten .k-bloom circle { fill: var(--k-bloom); } .pomo-kitten .k-bloom circle.c { fill: var(--k-bloom-c); }
+.pomo-kitten .k-flower { transform-box: view-box; transform-origin: 152px 150px; animation: k-sway 1.8s 8.2s ease-in-out infinite; }
+.pomo-kitten .k-petal { fill: var(--k-bloom); opacity: 0; animation: k-fall 5.4s 9.2s ease-in infinite; }
+@keyframes k-walk { from { transform: translateX(-320px); } to { transform: none; } }
+@keyframes k-hop { 50% { transform: translateY(-6px); } }
+@keyframes k-look { from { transform: none; } to { transform: rotate(8deg); } }
+@keyframes k-tail { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(14deg); } }
+@keyframes k-blink { 0%, 94%, 100% { transform: scaleY(1); } 97% { transform: scaleY(.1); } }
+@keyframes k-grow { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes k-pop { from { transform: scale(0); } to { transform: scale(1); } }
+@keyframes k-open { from { transform: scale(0) rotate(-90deg); } to { transform: scale(1); } }
+/* paw: crouch, swipe up at the blossom, back down; the flower swings when hit, then settles */
+@keyframes k-bat { 0%, 30%, 100% { transform: rotate(0); } 45% { transform: rotate(-35deg); } 55% { transform: rotate(-96deg); } 70% { transform: rotate(-20deg); } }
+@keyframes k-sway { 0%, 54%, 100% { transform: rotate(0); } 62% { transform: rotate(9deg); } 72% { transform: rotate(-5deg); } 82% { transform: rotate(2.5deg); } 92% { transform: rotate(-1deg); } }
+@keyframes k-fall { 0% { opacity: 0; transform: none; } 8% { opacity: 1; } 100% { opacity: 0; transform: translate(40px, 46px) rotate(200deg); } }
+@media (prefers-reduced-motion: reduce) { .pomo-big, .pomo-veil, .pomo-plant * { transition: none; } .pomo-kitten * { animation: none !important; } }
 
 /* day plan */
 .day { flex: 1; min-height: 0; overflow: auto; display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; padding: 0 16px 24px; align-items: start; }
@@ -427,7 +463,7 @@ a.ref.done { text-decoration: line-through; opacity: .7; }
 <div class="pop-scrim" id="pop-scrim"></div>
 <div class="pop-caret" id="pop-caret" hidden></div>
 <div class="settings-pop" id="settings-pop" hidden></div>
-<div class="pomo-veil" id="pomo-veil"><svg class="pomo-plant" id="pomo-plant" hidden></svg></div>
+<div class="pomo-veil" id="pomo-veil"><svg class="pomo-plant" id="pomo-plant" hidden></svg><canvas class="pomo-ascii" id="pomo-ascii" hidden></canvas><div class="pomo-kitten" id="pomo-kitten" hidden></div></div>
 <div class="pomo-big" id="pomo-big" hidden></div>
 
 <script>
@@ -1524,7 +1560,7 @@ function plantBuild(seed) {
   const BLOOMS = [['#f3b3c4', '#f2cf6b'], ['#f4a38c', '#f7e1a0'], ['#c9b6ee', '#f2d675'], ['#f6efe0', '#e8b64c'],
     ['#f7c59f', '#c97b4a'], ['#e3a6d6', '#f5e08a'], ['#a9cdf0', '#f6efe0'], ['#f28f8f', '#f6d98b']];
   const [bloom, bloomC] = BLOOMS[Math.floor(rnd() * BLOOMS.length)];
-  svg.style.setProperty('--bloom', bloom); svg.style.setProperty('--bloom-c', bloomC);
+  svg.style.setProperty('--bloom', bloom); svg.style.setProperty('--bloom-c', bloomC); plant.bloomC = bloomC;
   const bloomHsl = (() => { // hex → [h, s%, l%]
     const [r, g, b] = [1, 3, 5].map(i => parseInt(bloom.slice(i, i + 2), 16) / 255);
     const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, d = max - min;
@@ -1557,7 +1593,7 @@ function plantBuild(seed) {
     plantG.appendChild(path);
     const total = (pts.length - 1) * step;
     path.style.strokeDasharray = total; path.style.strokeDashoffset = total;
-    plant.stems.push({ el: path, total, t0, t1 });
+    plant.stems.push({ el: path, total, t0, t1, pts, col });
     const at = (i) => t0 + (t1 - t0) * (i * step / total); // progress at which point i is reached
     for (let i = 4; i < pts.length - 1; i += 4 + Math.floor(rnd() * 3)) {
       const [x, y] = pts[i], [x2, y2] = pts[i + 1];
@@ -1568,7 +1604,7 @@ function plantBuild(seed) {
       leaf.setAttribute('d', leafPath); leaf.setAttribute('class', 'leaf');
       leaf.style.fill = green(col.h - 6 + rnd() * 22, col.s + 10 + rnd() * 10, col.l + 10 + rnd() * 12);
       g.appendChild(leaf); plantG.appendChild(g);
-      plant.leaves.push({ el: leaf, t: at(i) + 0.01 });
+      plant.leaves.push({ el: leaf, t: at(i) + 0.01, x, y, ang, col: [col.h + 5, col.s + 14, col.l + 15] }); // no extra rnd(): keeps the seeded pattern
       // Branches: each with its own growth time, branching again (up to 4 levels).
       if (level < 4 && plant.stems.length < Math.min(900, 420 * Math.max(1, amount, branch)) && rnd() < [0, 0.34, 0.25, 0.15][level] * branch) {
         const ti = at(i), dir = rnd() < 0.7 ? 1 : -1; // mostly towards the centre, sometimes back along the edge
@@ -1588,7 +1624,7 @@ function plantBuild(seed) {
       const [bh, bs, bl] = bloomHsl, fill = `hsl(${(bh + (rnd() - 0.5) * 12).toFixed(0)} ${Math.max(0, Math.min(100, bs + (rnd() - 0.5) * 16)).toFixed(0)}% ${Math.max(0, Math.min(100, bl + (rnd() - 0.5) * 10)).toFixed(0)}%)`;
       b.innerHTML = [0, 72, 144, 216, 288].map(a => `<circle r="4.5" style="fill:${fill}" cx="${(5 * Math.cos(a * Math.PI / 180)).toFixed(1)}" cy="${(5 * Math.sin(a * Math.PI / 180)).toFixed(1)}"/>`).join('') + '<circle class="c" r="3"/>';
       g.appendChild(b); plantG.appendChild(g);
-      plant.leaves.push({ el: b, bloom: rnd() });
+      plant.leaves.push({ el: b, bloom: rnd(), x, y, fill });
     }
   }
   // A crack in the screen where a vine breaks through: a dark hole and jagged rays with a light bevel.
@@ -1639,9 +1675,10 @@ function plantBuild(seed) {
 function plantUpdate() {
   const svg = $('#pomo-plant');
   const D = pomoDone;
-  if (!settings().pomoPlant || (D ? D.mode : P.s.mode) !== 'focus') { svg.toggleAttribute('hidden', true); return; }
+  if (!settings().pomoPlant || (D ? D.mode : P.s.mode) !== 'focus') { svg.toggleAttribute('hidden', true); $('#pomo-ascii').hidden = true; return; }
   if (!pomoBigOn) return; // keep it while the view fades out
-  svg.toggleAttribute('hidden', false);
+  const ascii = pomoSurprise === 'ascii';
+  svg.toggleAttribute('hidden', ascii); $('#pomo-ascii').hidden = !ascii;
   const key = `${today()}|${D ? D.round : P.s.round}|${innerWidth}x${innerHeight}|${settings().pomoVines}|${settings().pomoBranch}|${settings().pomoEven}|${settings().pomoVinesMode}${settings().pomoBranchMode}${settings().pomoEvenMode}|${settings().pomoVinesSpread},${settings().pomoBranchSpread},${settings().pomoEvenSpread}`;
   if (plant.key !== key) { plant.key = key; plantBuild([...key].reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619), 2166136261)); }
   const S = settings();
@@ -1660,7 +1697,100 @@ function plantUpdate() {
   const durS = pomoDur('focus') / 1000, leftS = pomoLeft() / 1000;
   const win = durS <= 600 ? durS * 0.1 : 60 * Math.pow(durS / 600, 0.7), last = Math.min(2, win * 0.1);
   for (const l of plant.leaves)
-    l.el.classList.toggle('on', l.bloom === undefined ? p >= l.t : !!(D || leftS <= last + l.bloom * (win - last)));
+    l.el.classList.toggle('on', l.on = l.bloom === undefined ? p >= l.t : !!(D || leftS <= last + l.bloom * (win - last)));
+  if (ascii) asciiDraw(p);
+}
+
+// ------------------------------------------------------------ surprise mode
+// Every 10th idle view of a focus phase shows a surprise instead of the plain vines, taking turns:
+// a kitten that walks in, watches a bud open and ends up playing with the blossom, or the vines
+// drawn as ASCII characters. The counter lives in localStorage; the settings can queue one for
+// the next idle view to preview it.
+const SURPRISES = ['kitten', 'ascii'];
+let pomoSurprise = null;
+function surprisePick() {
+  const S = settings();
+  if (!S.pomoSurprise || !S.pomoPlant || (pomoDone ? pomoDone.mode : P.s.mode) !== 'focus') return null;
+  const forced = ls.get('surpriseNext', null);
+  if (SURPRISES.includes(forced)) { ls.set('surpriseNext', null); return forced; }
+  const n = ls.get('surpriseCount', 0) + 1;
+  ls.set('surpriseCount', n);
+  return n % 10 ? null : SURPRISES[(n / 10 - 1) % SURPRISES.length];
+}
+function surpriseShow() {
+  const k = $('#pomo-kitten');
+  $('#pomo-big').classList.toggle('ascii', pomoSurprise === 'ascii');
+  k.hidden = pomoSurprise !== 'kitten';
+  if (k.hidden) { k.innerHTML = ''; return; }
+  const pl = $('#pomo-plant').style;
+  k.style.setProperty('--k-bloom', pl.getPropertyValue('--bloom') || '#f3b3c4');
+  k.style.setProperty('--k-bloom-c', pl.getPropertyValue('--bloom-c') || '#f2cf6b');
+  // Re-inserted every time, so the little story starts from the beginning.
+  const petals = [0, 72, 144, 216, 288].map(a => `<circle r="7" cx="${(8 * Math.cos(a * Math.PI / 180)).toFixed(1)}" cy="${(8 * Math.sin(a * Math.PI / 180)).toFixed(1)}"/>`).join('');
+  k.innerHTML = `<svg viewBox="0 0 200 150" aria-hidden="true">
+    <g class="k-flower">
+      <path class="k-stem" pathLength="1" d="M152 150C150 136 160 126 152 116C148 110 146 106 144 104"/>
+      <path class="k-lf" d="M153 136c9-6 19-5 23 0c-8 5-16 5-23 0z"/><path class="k-lf" d="M156 124c8-7 17-7 21-2c-6 5-14 6-21 2z"/>
+      <g class="k-bloom" transform="translate(143 102)"><g>${petals}<circle class="c" r="5"/></g></g>
+    </g>
+    <circle class="k-petal" r="5" cx="143" cy="102"/>
+    <g class="k-cat"><g class="k-hop">
+      <path class="k-tail" d="M44 124C14 126 10 96 24 86"/>
+      <ellipse class="k-fur" cx="70" cy="114" rx="34" ry="24"/>
+      <ellipse class="k-fur k-dk" cx="54" cy="128" rx="16" ry="10"/>
+      <ellipse class="k-belly" cx="88" cy="118" rx="14" ry="16"/>
+      <rect class="k-fur" x="88" y="112" width="11" height="28" rx="5.5"/>
+      <g class="k-paw"><rect class="k-fur" x="100" y="110" width="11" height="30" rx="5.5"/></g>
+      <g class="k-head">
+        <path class="k-fur" d="M84 76L86 52L100 68Z"/><path class="k-fur" d="M112 66L124 50L124 76Z"/>
+        <path class="k-ear" d="M88 70L89 59L96 67Z"/><path class="k-ear" d="M114 67L121 58L121 71Z"/>
+        <circle class="k-fur" cx="104" cy="82" r="21"/>
+        <path class="k-stripe" d="M98 62c1 5 1 8 0 11M106 61c0 5 0 8 1 11"/>
+        <g class="k-eyes"><ellipse cx="98" cy="80" rx="3.2" ry="4.4"/><ellipse cx="113" cy="80" rx="3.2" ry="4.4"/></g>
+        <path class="k-nose" d="M104 87l4 0l-2 3z"/>
+        <path class="k-mouth" d="M106 90q-2 4-5 2M106 90q2 4 5 2"/>
+        <path class="k-wh" d="M96 89l-15-2M96 92l-14 3M116 89l14-3M116 92l13 2"/>
+      </g>
+    </g></g></svg>`;
+}
+
+// ASCII vines: the same plant as the SVG one, drawn into a character grid on a canvas.
+function asciiDraw(p) {
+  const cv = $('#pomo-ascii'), dpr = devicePixelRatio || 1, W = innerWidth, H = innerHeight;
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+  const fs = 14, font = `${fs}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+  ctx.font = font; ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+  const cw = ctx.measureText('M').width, ch = fs * 1.15;
+  const baseL = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--plant-l')) || 30;
+  const hsl = ([h, s, l]) => `hsl(${h.toFixed(0)}, ${Math.min(70, s).toFixed(0)}%, ${Math.max(5, Math.min(92, baseL + l)).toFixed(0)}%)`;
+  const grid = new Map(); // one character per cell, later layers win
+  const put = (x, y, c, col) => { const gx = Math.round(x / cw), gy = Math.round(y / ch); grid.set(gx + ',' + gy, [gx, gy, c, col]); };
+  for (const s of plant.stems) {
+    const f = Math.max(0, Math.min(1, (p - s.t0) / (s.t1 - s.t0))), n = Math.floor(f * (s.pts.length - 1));
+    if (n < 1) continue;
+    const col = hsl([s.col.h, s.col.s, s.col.l]);
+    for (let i = 0; i <= n; i++) {
+      const a = s.pts[Math.max(0, i - 1)], b = s.pts[Math.min(s.pts.length - 1, i + 1)];
+      // Direction in cell units, so the glyph matches how steep the stem looks on screen.
+      const dx = (b[0] - a[0]) / cw, dy = (b[1] - a[1]) / ch, ang = Math.abs(Math.atan2(dy, dx) * 180 / Math.PI);
+      const c = ang < 22 || ang > 158 ? '-' : ang > 68 && ang < 112 ? '|' : (dx * dy > 0 ? '\\' : '/');
+      put(s.pts[i][0], s.pts[i][1], c, col);
+    }
+  }
+  for (const l of plant.leaves) {
+    if (!l.on) continue;
+    if (l.bloom === undefined) {
+      // A leaf sits a little off the stem, in the direction it points.
+      const r = l.ang * Math.PI / 180;
+      put(l.x + Math.cos(r) * cw, l.y + Math.sin(r) * ch * 0.8, (Math.round(l.x + l.y) % 3) ? '&' : '%', hsl(l.col));
+    } else {
+      for (const [ox, oy, c] of [[-1, 0, '*'], [1, 0, '*'], [0, -1, '*'], [0, 1, '*'], [0, 0, '@']])
+        put(l.x + ox * cw, l.y + oy * ch, c, c === '@' ? (plant.bloomC || '#f2cf6b') : l.fill);
+    }
+  }
+  for (const [gx, gy, c, col] of grid.values()) { ctx.fillStyle = col; ctx.fillText(c, gx * cw, gy * ch); }
 }
 
 // Seconds ring: the fraction of the current minute still left, updated every animation frame
@@ -1688,6 +1818,7 @@ function pomoBig(on) {
   pomoBigOn = on;
   const big = $('#pomo-big'), veil = $('#pomo-veil');
   if (on) {
+    pomoSurprise = surprisePick(); surpriseShow();
     big.hidden = false; pomoPaint();
     big.style.transition = 'none'; big.style.opacity = '0'; big.style.transform = pomoBtnTransform();
     big.offsetWidth; // commit start position before animating
@@ -1696,7 +1827,7 @@ function pomoBig(on) {
   } else {
     big.style.transform = pomoBtnTransform(); big.style.opacity = '0';
     veil.classList.remove('on');
-    const done = () => { if (!pomoBigOn) big.hidden = true; };
+    const done = () => { if (pomoBigOn) return; big.hidden = true; if (pomoSurprise) { pomoSurprise = null; surpriseShow(); $('#pomo-ascii').hidden = true; } };
     big.addEventListener('transitionend', done, { once: true });
     setTimeout(done, 700);
   }
@@ -1744,7 +1875,7 @@ function goTo(ref) {
 
 // ------------------------------------------------------------ settings
 // Per-browser dashboard preferences (localStorage); opened by clicking "keepr".
-const SETTINGS_DEFAULT = { pomoBig: true, pomoIdleSec: 15, pomoPlant: true, pomoBlur: false, pomoBlurLevel: 3, pomoVines: 100, pomoBranch: 100, pomoDepth: true, pomoBreakout: false, pomoVinesSpread: 30, pomoBranchSpread: 30, pomoEvenSpread: 30, pomoEven: 0, pomoVinesMode: 'fixed', pomoBranchMode: 'fixed', pomoEvenMode: 'fixed', density: 2, timerFont: 'script', idleSeconds: 'ring' };
+const SETTINGS_DEFAULT = { pomoBig: true, pomoIdleSec: 15, pomoPlant: true, pomoBlur: false, pomoBlurLevel: 3, pomoVines: 100, pomoBranch: 100, pomoDepth: true, pomoBreakout: false, pomoVinesSpread: 30, pomoBranchSpread: 30, pomoEvenSpread: 30, pomoEven: 0, pomoVinesMode: 'fixed', pomoBranchMode: 'fixed', pomoEvenMode: 'fixed', density: 2, timerFont: 'script', idleSeconds: 'ring', pomoSurprise: false };
 const settings = () => {
   const S = { ...SETTINGS_DEFAULT, ...ls.get('settings', {}) };
   const stored = ls.get('settings', {});
@@ -1855,6 +1986,9 @@ function settingsPaint() {
           <p class="set-note">Fixed: exactly the value. Vary: each focus phase picks a value within the ± range around it. Random: each phase picks any value.</p>
           <label class="opt"><input type="checkbox" id="set-pomo-depth" ${S.pomoDepth ? 'checked' : ''}><span>Depth<small>Vines cast a soft shadow, leaves pop out a little.</small></span></label>
           <label class="opt"><input type="checkbox" id="set-pomo-cracks" ${S.pomoBreakout ? 'checked' : ''}><span>Cracks<small>Vines break out of the screen through small cracks.</small></span></label>
+          <label class="opt"><input type="checkbox" id="set-pomo-surprise" ${S.pomoSurprise ? 'checked' : ''}><span>Surprise mode<small>Every 10th idle view shows a surprise instead, in turn: a kitten that ends up playing with a blossom, or the vines drawn in ASCII.</small></span></label>
+          <div class="set-row ${S.pomoSurprise ? '' : 'off'}"><span>Preview</span><div class="seg set-seg" id="set-surprise-next">${[['kitten', 'Kitten'], ['ascii', 'ASCII']].map(([k, l]) =>
+            `<button data-surprise="${k}" class="${ls.get('surpriseNext', null) === k ? 'on' : ''}">${l}</button>`).join('')}</div><span class="val">${ls.get('surpriseNext', null) ? 'on next idle view' : `in ${10 - ls.get('surpriseCount', 0) % 10} views`}</span></div>
         </div>
         ${S.pomoBig ? '' : '<p class="set-note">Turn on “Big timer when idle” above to see the vines.</p>'}
       </div>` },
@@ -1896,6 +2030,8 @@ function settingsPaint() {
   });
   on('#set-pomo-depth', 'onchange', (e) => { setSetting('pomoDepth', e.target.checked); plantUpdate(); });
   on('#set-pomo-cracks', 'onchange', (e) => { setSetting('pomoBreakout', e.target.checked); plantUpdate(); });
+  on('#set-pomo-surprise', 'onchange', (e) => { setSetting('pomoSurprise', e.target.checked); settingsPaint(); });
+  on('#set-surprise-next', 'onclick', (e) => { const b = e.target.closest('[data-surprise]'); if (!b) return; const k = b.dataset.surprise; ls.set('surpriseNext', ls.get('surpriseNext', null) === k ? null : k); settingsPaint(); });
   on('#set-pomo-blur', 'onchange', (e) => { setSetting('pomoBlur', e.target.checked); settingsPaint(); });
   on('#set-pomo-blur-lvl', 'oninput', (e) => { setSetting('pomoBlurLevel', Number(e.target.value)); $('#set-pomo-blur-val').textContent = BLUR_LEVELS[e.target.value - 1]; });
   on('#set-pomo-idle', 'onchange', (e) => { setSetting('pomoIdleSec', Math.min(600, Math.max(3, Math.round(Number(e.target.value) || 15)))); settingsPaint(); });

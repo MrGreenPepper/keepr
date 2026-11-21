@@ -224,6 +224,8 @@ The 🍅 button in the header opens the timer window: phase switch, the time, St
 
 **Growing vines.** During a focus phase, vines grow in from the screen edges around the card. New vines keep sprouting and branching as time passes, so the edges fill up towards the end. Each vine has its own shade of green, and every phase gets a new pattern and a new blossom colour. The blossoms only open near the end (the last 10 % of the phase, a little less for long phases). Optionally the vines cast a shadow (on by default) or break out of the screen through small cracks (off by default).
 
+**Surprise mode.** Off by default. When on, every 10th idle view of a focus phase shows a surprise instead of the plain vines, taking turns: a kitten walks in, watches a bud grow and open, and ends up batting at the blossom; or the vines, leaves and blossoms are drawn as ASCII characters (with a monospace timer to match). *Preview* in the settings queues either one for the next idle view.
+
 ### Settings
 
 <sub>[↑ Back to top](#top)</sub>
@@ -233,7 +235,7 @@ Click **keepr** in the header. Categories are on the left, their options on the 
 - **Appearance**: theme (*Light*, *Dark* or *System*), timer font (*Script* – Sacramento, the default – *Rounded*, *System* or *Monospace*) and spacing (*compact* to *spacious*), which scales the padding of lists, cards and windows.
 - **Pomodoro timer**
   - **Idle timer**: turn the idle focus view on or off, set the idle time, choose how the time is shown (minutes with a ring, or minutes:seconds), and optionally blur the page behind it (five strength levels).
-  - **Vines**: turn the vines on or off, set *Amount*, *Branching* and *Evenness* (scattered to evenly spaced), and toggle *Depth* and *Cracks*. Each of the three sliders has a mode: *Fixed* uses the value as set, *Vary* picks a value within a ± range around it for every focus phase, *Random* picks any value per phase.
+  - **Vines**: turn the vines on or off, set *Amount*, *Branching* and *Evenness* (scattered to evenly spaced), and toggle *Depth*, *Cracks* and *Surprise mode* (with a preview for the next idle view). Each of the three sliders has a mode: *Fixed* uses the value as set, *Vary* picks a value within a ± range around it for every focus phase, *Random* picks any value per phase.
 
 ## Multiple projects
 
