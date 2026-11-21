@@ -299,6 +299,15 @@ a.ref.done { text-decoration: line-through; opacity: .7; }
 .pomo-big .pb-mode::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
 .pomo-big:not([data-m="focus"]) .pb-mode::before { background: var(--ok); }
 .pomo-big .pb-time { font: 400 calc(clamp(88px, 22vw, 140px) * var(--timer-scale, 1))/1 var(--timer-font); font-variant-numeric: tabular-nums; color: var(--text); letter-spacing: .01em; }
+/* ring mode: minutes inside a slowly draining circle (calmer than ticking seconds) */
+.pomo-big .pb-ringed { position: relative; width: 1.75em; height: 1.75em; display: grid; place-content: center; justify-items: center; font-size: calc(clamp(88px, 22vw, 140px) * var(--timer-scale, 1) * .58); }
+.pomo-big .pb-ring { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
+.pomo-big .pb-ring circle { fill: none; stroke-width: 1.6; }
+.pomo-big .pb-ring .bg { stroke: var(--line); }
+.pomo-big .pb-ring .fg { stroke: var(--accent); stroke-linecap: round; stroke-dasharray: 1; }
+.pomo-big:not([data-m="focus"]) .pb-ring .fg { stroke: var(--ok); }
+.pomo-big .pb-min { line-height: .9; }
+.pomo-big .pb-ringed small { font: 500 13px/1 system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-top: 6px; }
 .pomo-big .pb-bar { width: 100%; height: 6px; border-radius: 4px; background: var(--panel-2); overflow: hidden; }
 .pomo-big .pb-bar i { display: block; height: 100%; background: var(--accent); border-radius: 4px; transition: width 1s linear; }
 .pomo-big:not([data-m="focus"]) .pb-bar i { background: var(--ok); }
@@ -1411,10 +1420,17 @@ function pomoPaint(full = false) {
     const D = pomoDone, mode = D ? D.mode : P.s.mode, task = D ? D.task : P.s.task;
     big.dataset.m = mode;
     const done = D ? 100 : Math.min(100, 100 - pomoLeft() / pomoDur(mode) * 100);
+    const ring = settings().idleSeconds !== 'digits';
+    // Ring mode: only the minutes, inside a thin circle that drains smoothly over each minute
+    // (driven by pomoRingTick), instead of digits that jump every second.
+    const mins = D ? 0 : Math.ceil(pomoLeft() / 60000);
+    const time = ring ? `<div class="pb-time pb-ringed"><svg class="pb-ring" viewBox="0 0 100 100" aria-hidden="true"><circle class="bg" cx="50" cy="50" r="47"/><circle class="fg" id="pb-ring-fg" cx="50" cy="50" r="47" pathLength="1"/></svg><span class="pb-min">${mins}</span><small>min</small></div>`
+      : `<div class="pb-time">${D ? '00:00' : left}</div>`;
     big.innerHTML = `<div class="pb-mode">${D ? (mode === 'focus' ? 'Focus done' : 'Break over') : esc(POMO_MODES[mode])}</div>
-      <div class="pb-time">${D ? '00:00' : left}</div>
+      ${time}
       <div class="pb-bar"><i style="width:${done.toFixed(1)}%"></i></div>
       <div class="pb-task">${task ? `${esc(task.id)} – ${esc(task.title || '')}` : ''}</div>`;
+    pomoRingTick(true);
   }
   plantUpdate();
   const pop = $('#pomo-pop');
@@ -1647,6 +1663,19 @@ function plantUpdate() {
     l.el.classList.toggle('on', l.bloom === undefined ? p >= l.t : !!(D || leftS <= last + l.bloom * (win - last)));
 }
 
+// Seconds ring: the fraction of the current minute still left, updated every animation frame
+// while the idle view is up, so it runs down continuously instead of in one-second steps.
+let pomoRingRaf = 0;
+function pomoRingTick(once = false) {
+  const fg = $('#pb-ring-fg');
+  if (!fg) { pomoRingRaf = 0; return; }
+  const left = pomoDone ? 0 : pomoLeft();
+  const frac = left <= 0 ? 0 : ((left - 1) % 60000 + 1) / 60000;
+  fg.style.strokeDashoffset = (1 - frac).toFixed(4);
+  if (once && pomoRingRaf) return;
+  pomoRingRaf = pomoBigOn && P.s.running && !pomoDone ? requestAnimationFrame(() => pomoRingTick()) : 0;
+}
+
 // Transform that makes the centred big timer sit exactly on the header button.
 function pomoBtnTransform() {
   const b = $('#pomo-btn').getBoundingClientRect(), big = $('#pomo-big');
@@ -1715,7 +1744,7 @@ function goTo(ref) {
 
 // ------------------------------------------------------------ settings
 // Per-browser dashboard preferences (localStorage); opened by clicking "keepr".
-const SETTINGS_DEFAULT = { pomoBig: true, pomoIdleSec: 15, pomoPlant: true, pomoBlur: false, pomoBlurLevel: 3, pomoVines: 100, pomoBranch: 100, pomoDepth: true, pomoBreakout: false, pomoVinesSpread: 30, pomoBranchSpread: 30, pomoEvenSpread: 30, pomoEven: 0, pomoVinesMode: 'fixed', pomoBranchMode: 'fixed', pomoEvenMode: 'fixed', density: 2, timerFont: 'script' };
+const SETTINGS_DEFAULT = { pomoBig: true, pomoIdleSec: 15, pomoPlant: true, pomoBlur: false, pomoBlurLevel: 3, pomoVines: 100, pomoBranch: 100, pomoDepth: true, pomoBreakout: false, pomoVinesSpread: 30, pomoBranchSpread: 30, pomoEvenSpread: 30, pomoEven: 0, pomoVinesMode: 'fixed', pomoBranchMode: 'fixed', pomoEvenMode: 'fixed', density: 2, timerFont: 'script', idleSeconds: 'ring' };
 const settings = () => {
   const S = { ...SETTINGS_DEFAULT, ...ls.get('settings', {}) };
   const stored = ls.get('settings', {});
@@ -1804,6 +1833,8 @@ function settingsPaint() {
           <span>Big timer when idle<small>While the pomodoro runs and the page is idle, show the timer large in the centre.</small></span></label>
         <div class="set-body ${S.pomoBig ? '' : 'off'}">
           <label class="set-row"><span>Show after</span><span class="set-num"><input class="input" type="number" min="3" max="600" id="set-pomo-idle" value="${S.pomoIdleSec}"><small>seconds without activity</small></span></label>
+          <div class="set-row"><span>Time shown</span><div class="seg set-seg" id="set-idle-secs">${[['ring', 'Minutes + ring'], ['digits', 'Minutes:seconds']].map(([k, l]) =>
+            `<button data-secs="${k}" class="${S.idleSeconds === k ? 'on' : ''}">${l}</button>`).join('')}</div><span></span></div>
         </div>
       </div>
       <div class="${grp(S.pomoBig)}">
@@ -1846,6 +1877,7 @@ function settingsPaint() {
   pop.querySelector('.set-main').scrollTop = keepScroll;
   pop.querySelector('.set-nav').onclick = (e) => { const b = e.target.closest('[data-cat]'); if (b) { ls.set('settingsCat', b.dataset.cat); settingsPaint(); } };
   const on = (id, ev, fn) => { const el = $(id); if (el) el[ev] = fn; };
+  on('#set-idle-secs', 'onclick', (e) => { const b = e.target.closest('[data-secs]'); if (b) { setSetting('idleSeconds', b.dataset.secs); settingsPaint(); pomoPaint(); } });
   on('#set-timer-font', 'onclick', (e) => { const b = e.target.closest('[data-font]'); if (b) { setSetting('timerFont', b.dataset.font); settingsPaint(); } });
   on('#set-theme', 'onclick', (e) => { const b = e.target.closest('[data-theme]'); if (b) { setTheme(b.dataset.theme); settingsPaint(); } });
   on('#set-density', 'oninput', (e) => { setSetting('density', Number(e.target.value)); $('#set-density-val').textContent = DENSITY[e.target.value - 1][0]; });
