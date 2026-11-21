@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>keepr</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="fonts.css">
+</head>
+<body>
+<div class="app">
+  <header>
+    <button class="brand" id="brand" title="Settings"><span class="dot" id="live" title="Live connection"></span>keepr</button>
+    <select class="input" id="project"></select>
+    <div class="tabs" id="tabs">
+      <button data-tab="answers">Answers<span class="count" id="c-answers"></span></button>
+      <button data-tab="inbox" title="Things to clarify before they become a task">Inbox<span class="count" id="c-inbox"></span></button>
+      <button data-tab="tasks">Tasks<span class="count" id="c-tasks"></span></button>
+      <button data-tab="day" title="Day plan: time blocks for your own items, keepr tasks and free windows for the AI">Day<span class="count" id="c-day"></span></button>
+    </div>
+    <div class="spacer"></div>
+    <input class="input search" id="search" placeholder="Search…  ( / )">
+    <button class="btn pomo-btn" id="pomo-btn" title="Pomodoro timer">🍅 25:00</button>
+    <button class="btn ghost" id="theme" title="Light/dark">◐</button>
+  </header>
+  <main id="main"></main>
+</div>
+<div class="drawer-bg" id="drawer-bg"></div>
+<aside class="drawer" id="drawer"></aside>
+<div class="toast" id="toast"></div>
+<div class="pomo-pop" id="pomo-pop" hidden></div>
+<div class="pop-scrim" id="pop-scrim"></div>
+<div class="pop-caret" id="pop-caret" hidden></div>
+<div class="settings-pop" id="settings-pop" hidden></div>
+<div class="pomo-veil" id="pomo-veil"><svg class="pomo-plant" id="pomo-plant" hidden></svg><canvas class="pomo-ascii" id="pomo-ascii" hidden></canvas><div class="pomo-kitten" id="pomo-kitten" hidden></div></div>
+<div class="pomo-big" id="pomo-big" hidden></div>
+<script src="js/core.js"></script>
+<script src="js/answers.js"></script>
+<script src="js/inbox.js"></script>
+<script src="js/tasks.js"></script>
+<script src="js/dayplan.js"></script>
+<script src="js/drawer.js"></script>
+<script src="js/pomodoro.js"></script>
+<script src="js/surprise.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

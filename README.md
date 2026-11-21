@@ -18,7 +18,7 @@ A local dashboard for working with AI agents (Claude Code, Claude Desktop). No d
 keepr is installed **once** per machine and used from **any number of projects**. The program is central, the data is not: every project keeps its own data in its own folder.
 
 ```
-                 keepr.mjs  (one program, installed once)
+           keepr.mjs + lib/  (one program, installed once)
       ┌──────────────┬──────────────┬───────────────────┐
       │ CLI          │ dashboard    │ MCP server        │
       │ keepr …      │ server       │ keepr mcp         │
@@ -30,7 +30,7 @@ keepr is installed **once** per machine and used from **any number of projects**
    (registry: which projects exist)  (answers, inbox, tasks of that project)
 ```
 
-- **One program, three ways in.** `keepr.mjs` is a single file without dependencies. It is the CLI, the dashboard server and the MCP server at the same time, and all three run the same operations on the same files. Whatever the AI changes via CLI or MCP shows up in the dashboard right away.
+- **One program, three ways in.** `keepr` is one program without dependencies (entry point `keepr.mjs`, code in `lib/`). It is the CLI, the dashboard server and the MCP server at the same time, and all three run the same operations on the same files. Whatever the AI changes via CLI or MCP shows up in the dashboard right away.
 - **Data per project.** Each project has its own `.keepr/data.json` in its root folder (git root or the folder you started in). Commit it with the project or ignore it, your choice. Never edit it by hand, always go through `keepr`.
 - **Central registry.** `~/.config/keepr/projects.json` only lists which projects exist (name and path), no content. A project is added to it automatically the first time keepr touches it.
 - **Which project is used?** The CLI and the skills search upward from the current folder for a `.keepr/` folder, so subfolders share their repository's project. The MCP server has no working folder and takes a `project` name or path instead. Details in [Multiple projects](#multiple-projects).
@@ -338,8 +338,19 @@ The desktop app is only available for macOS and Windows. On Linux, use VS Code o
 
 <sub>[↑ Back to top](#top)</sub>
 
-- `keepr.mjs`: CLI, HTTP server for the dashboard (`127.0.0.1` only) and MCP server (`keepr mcp`)
-- `dashboard.html`: the UI (the Sacramento timer font is embedded, so the dashboard never loads anything from the internet)
+- `keepr.mjs`: entry point of the `keepr` command; picks the role from the first argument
+- `lib/`: the program, one module per area
+  - `config.mjs`: paths, version, allowed values
+  - `storage.mjs`: reading and writing `.keepr/data.json`, project registry
+  - `ops.mjs`: the operations shared by CLI, dashboard and MCP server
+  - `dayplan.mjs`: time blocks and free windows of the day plan
+  - `transcripts.mjs`: reads Claude Code transcripts for `keepr save` (optional adapter)
+  - `format.mjs`, `cli.mjs`: argument parsing, text output and the CLI commands
+  - `server.mjs`: HTTP server for the dashboard (`127.0.0.1` only)
+  - `mcp.mjs`: MCP server (`keepr mcp`)
+- `dashboard/`: the UI, served by `keepr serve`
+  - `index.html`, `style.css`, `fonts.css` (the Sacramento timer font is embedded, so the dashboard never loads anything from the internet)
+  - `js/`: plain scripts sharing one global scope, loaded in order (`core.js` first, `main.js` last)
 - `fonts/Sacramento-OFL.txt`: licence of the embedded Sacramento font (SIL Open Font License 1.1)
 - `skills/`: Claude skills
 - `.claude-plugin/`: plugin and marketplace manifests for Claude Code

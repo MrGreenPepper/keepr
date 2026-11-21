@@ -36,7 +36,12 @@ keepr should not lock the user into one AI provider. Keep the core usable from C
 
 ## Conventions
 
-- Single file, no dependencies (`keepr.mjs`, `dashboard.html`); Node >= 18.
+- No dependencies and no build step; Node >= 18. `keepr.mjs` is only the entry point, the code
+  lives in `lib/*.mjs` (ES modules, one per area), the UI in `dashboard/` (`index.html`,
+  `style.css`, `js/*.js`). Keep new code in the module of its area instead of growing one file.
+- `dashboard/js/*.js` are classic scripts sharing one global scope, loaded in the order of
+  `index.html`: at load time a file must not call anything from a later file; start-up code goes
+  into `main.js`.
 - Never edit `.keepr/data.json` by hand – always go through `keepr` / the ops.
 - Test with a throwaway project and an isolated home so the real registry stays untouched:
   `HOME=<tmp> node keepr.mjs …` (dashboard: `serve --port 4848`).
