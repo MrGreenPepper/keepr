@@ -29,7 +29,7 @@ export const LINK_TYPES = ['relates', 'blocks', 'blocked_by'];
 const now = () => new Date().toISOString();
 
 function emptyData(name) {
-  return { version: 1, name, counters: { A: 0, T: 0, I: 0 }, answers: [], tasks: [], inbox: [] };
+  return { version: 1, name, counters: { A: 0, T: 0, I: 0, B: 0 }, answers: [], tasks: [], inbox: [], plan: [] };
 }
 
 // New projects use .keepr/; projects created before the rename keep their .workflow/ folder.
@@ -74,9 +74,11 @@ export function readData(root) {
   const d = JSON.parse(fs.readFileSync(dataFile(root), 'utf8'));
   d.counters ??= { A: 0, T: 0 };
   d.counters.I ??= 0;
+  d.counters.B ??= 0;
   d.answers ??= [];
   d.tasks ??= [];
   d.inbox ??= [];
+  d.plan ??= [];
   for (const t of d.tasks) {
     t.links ??= [];
     for (const st of t.subtasks || []) {
@@ -200,6 +202,60 @@ export function nextTasks(tasks, today = localDate()) {
   return groups;
 }
 
+// ---------------------------------------------------------------- day plan
+// Time blocks per day (B1, B2 …): own entries (title), linked keepr tasks (taskId) or free windows
+// (neither) that the user marks and an AI – or plan.autofill – fills later. Blocks of one day never
+// overlap; a new block inside a free window cuts that window down instead.
+
+export const toMin = (hhmm) => { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; };
+export const fromMin = (n) => `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`;
+export const isFreeBlock = (b) => !b.title && !b.taskId;
+
+// "9" → 09:00, "9.30" / "9:30" → 09:30, "24:00" allowed as end of day.
+function normTime(v, what) {
+  let s = String(v ?? '').trim().replace('.', ':');
+  if (/^\d{1,2}$/.test(s)) s += ':00';
+  if (/^\d:\d\d$/.test(s)) s = '0' + s;
+  if (!/^(([01]\d|2[0-3]):[0-5]\d|24:00)$/.test(s)) throw new Error(`Invalid ${what} "${v}" – use HH:MM`);
+  return s;
+}
+
+// today / tomorrow / yesterday / +2 / YYYY-MM-DD → YYYY-MM-DD
+export function parseDate(v) {
+  if (!v || v === true || v === 'today') return localDate();
+  if (v === 'tomorrow') return localDate(1);
+  if (v === 'yesterday') return localDate(-1);
+  if (/^[+-]\d+$/.test(v)) return localDate(Number(v));
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(new Date(v + 'T00:00'))) return v;
+  throw new Error(`Invalid date "${v}" – use YYYY-MM-DD, today or tomorrow`);
+}
+
+export function dayBlocks(data, date) {
+  return data.plan.filter(b => b.date === date).sort((a, b) => a.start.localeCompare(b.start));
+}
+
+function getBlock(data, id) {
+  const b = data.plan.find(x => x.id.toLowerCase() === String(id).toLowerCase());
+  if (!b) throw new Error(`Block ${id} not found`);
+  return b;
+}
+
+// Checks a block against the other blocks of its day and cuts overlapping free windows.
+function placeBlock(data, block) {
+  const s = toMin(block.start), e = toMin(block.end);
+  if (e <= s) throw new Error(`Block ends before it starts (${block.start}–${block.end})`);
+  const others = dayBlocks(data, block.date).filter(x => x.id !== block.id && toMin(x.start) < e && toMin(x.end) > s);
+  const clash = others.filter(x => isFreeBlock(block) || !isFreeBlock(x));
+  if (clash.length) throw new Error(`${block.start}–${block.end} overlaps ${clash.map(x => `${x.id} (${x.start}–${x.end})`).join(', ')}`);
+  for (const f of others) {
+    const parts = [[toMin(f.start), s], [e, toMin(f.end)]].filter(([a, b]) => b > a);
+    if (!parts.length) { data.plan = data.plan.filter(x => x !== f); continue; }
+    [f.start, f.end] = parts[0].map(fromMin);
+    f.updatedAt = now();
+    if (parts[1]) data.plan.push({ ...f, id: nextId(data, 'B'), start: fromMin(parts[1][0]), end: fromMin(parts[1][1]), createdAt: now() });
+  }
+}
+
 function getItem(list, id, what) {
   const item = list.find(x => x.id === Number(id));
   if (!item) throw new Error(`${what} ${id} not found`);
@@ -306,6 +362,7 @@ export const ops = {
     const t = getTask(data, id);
     data.tasks = data.tasks.filter(x => x !== t);
     for (const x of data.tasks) x.links = (x.links || []).filter(l => l.to !== t.id);
+    for (const b of data.plan) if (b.taskId === t.id) { b.title ||= t.title; b.taskId = null; }
     return t;
   },
   'task.sub.add'(data, { id, text, description, status }) {
@@ -388,6 +445,54 @@ export const ops = {
     data.inbox = data.inbox.filter(x => x !== i);
     return i;
   },
+  'plan.add'(data, b) {
+    const block = {
+      id: null, date: parseDate(b.date), start: normTime(b.start, 'start'), end: normTime(b.end, 'end'),
+      title: (b.title || '').trim(), taskId: b.taskId ? getTask(data, b.taskId).id : null, note: b.note || '',
+      done: false, by: b.by || 'user', createdAt: now(), updatedAt: now(),
+    };
+    placeBlock(data, block);
+    block.id = nextId(data, 'B');
+    data.plan.push(block);
+    return block;
+  },
+  'plan.update'(data, { id, patch }) {
+    const b = getBlock(data, id);
+    const next = { ...b };
+    if (patch.date !== undefined) next.date = parseDate(patch.date);
+    if (patch.start !== undefined) next.start = normTime(patch.start, 'start');
+    if (patch.end !== undefined) next.end = normTime(patch.end, 'end');
+    if (patch.title !== undefined) next.title = String(patch.title || '').trim();
+    if (patch.taskId !== undefined) next.taskId = patch.taskId && patch.taskId !== 'none' ? getTask(data, patch.taskId).id : null;
+    if (patch.note !== undefined) next.note = patch.note || '';
+    if (patch.done !== undefined) next.done = !!patch.done;
+    if (['date', 'start', 'end', 'title', 'taskId'].some(k => next[k] !== b[k])) placeBlock(data, next);
+    Object.assign(b, next, { updatedAt: now() });
+    return b;
+  },
+  'plan.delete'(data, { id }) {
+    const b = getBlock(data, id);
+    data.plan = data.plan.filter(x => x !== b);
+    return b;
+  },
+  // Fills the free windows of a day with open tasks (without AI): overdue, due soon, urgent first,
+  // then the rest by priority; at most maxMinutes per block, tasks already planned that day are skipped.
+  'plan.autofill'(data, { date, maxMinutes = 90 }) {
+    date = parseDate(date);
+    const planned = new Set(dayBlocks(data, date).map(b => b.taskId).filter(Boolean));
+    const g = nextTasks(data.tasks, date);
+    const rest = data.tasks.filter(t => t.status !== 'done')
+      .sort((a, b) => PRIORITIES.indexOf(a.priority) - PRIORITIES.indexOf(b.priority) || STATUSES.indexOf(b.status) - STATUSES.indexOf(a.status) || (a.order || 0) - (b.order || 0));
+    const queue = [...new Set([...g.overdue, ...g.soon, ...g.urgent, ...rest])].filter(t => !planned.has(t.id));
+    const added = [];
+    while (queue.length) {
+      const free = dayBlocks(data, date).find(b => isFreeBlock(b) && toMin(b.end) - toMin(b.start) >= 15);
+      if (!free) break;
+      const end = Math.min(toMin(free.end), toMin(free.start) + Number(maxMinutes));
+      added.push(ops['plan.add'](data, { date, start: free.start, end: fromMin(end), taskId: queue.shift().id, by: 'auto' }));
+    }
+    return added;
+  },
   // Turns an inbox item into a task; the item counts as clarified unless keepOpen.
   'inbox.toTask'(data, { id, keepOpen, ...t }) {
     const i = getInbox(data, id);
@@ -468,7 +573,7 @@ export function parseTurns(file) {
 // ---------------------------------------------------------------- CLI helpers
 
 const REPEATABLE = new Set(['point', 'sub', 'tag']);
-const BOOLEAN = new Set(['json', 'all', 'full', 'stdin', 'no-open', 'done', 'undone', 'remove', 'help', 'ai', 'keep-open']);
+const BOOLEAN = new Set(['free', 'json', 'all', 'full', 'stdin', 'no-open', 'done', 'undone', 'remove', 'help', 'ai', 'keep-open']);
 
 function parseArgs(argv) {
   const pos = [], opt = {};
@@ -523,6 +628,21 @@ function fmtNext(groups) {
   const parts = Object.entries(NEXT_GROUPS).filter(([k]) => groups[k].length)
     .map(([k, label]) => `${label} (${groups[k].length})\n${groups[k].map(t => `  ${fmtTask(t)}`).join('\n')}`);
   return parts.join('\n\n') || '(nothing due – no overdue, upcoming or urgent tasks)';
+}
+
+// Day plan as text, plus the free windows – shared by keepr plan and the MCP tools.
+function fmtBlock(b, data) {
+  const t = b.taskId && data.tasks.find(x => x.id === b.taskId);
+  const what = isFreeBlock(b) ? '· free window ·'
+    : t ? `${t.id} ${b.title || t.title}${t.status === 'done' ? ' (task done)' : ''}` : b.title;
+  return `${b.id.padEnd(4)} ${b.start}–${b.end}  [${b.done ? 'x' : ' '}] ${what}${b.note ? `  – ${b.note}` : ''}`;
+}
+function fmtPlan(data, date) {
+  const blocks = dayBlocks(data, date);
+  const mins = (f) => blocks.filter(f).reduce((n, b) => n + toMin(b.end) - toMin(b.start), 0);
+  const h = (m) => `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')} h`;
+  const head = `Day plan ${date} – planned ${h(mins(b => !isFreeBlock(b)))}, free ${h(mins(isFreeBlock))}`;
+  return `${head}\n${blocks.map(b => fmtBlock(b, data)).join('\n') || '(nothing planned yet)'}`;
 }
 
 const SUB_BOX = { todo: ' ', in_progress: '~', review: '?', done: 'x' };
@@ -631,6 +751,15 @@ Inbox (I…) – things to clarify before they become a task
                                   create a task from it (marks it clarified)
   keepr inbox rm I3
 
+Day plan (B…) – time blocks per day: own entries, keepr tasks, or free windows for the AI to fill
+  keepr plan [show] [today|tomorrow|YYYY-MM-DD]
+  keepr plan add 09:00-10:30 ["title"] [--task T3] [--note N] [--date D]   (no title/task = free window)
+  keepr plan free 14:00-17:00 [--date D]         mark a free window (an AI or autofill fills it)
+  keepr plan update B3 [--time 10:00-11:00] [--title T] [--task T3|none] [--note N] [--date D]
+  keepr plan done|undone B3
+  keepr plan rm B3
+  keepr plan autofill [--date D] [--max 90]      fill free windows with open tasks (no AI)
+
 --origin: background – which question or observation led to this item, so it is still
 understandable later. Tasks inherit it from their answer (--from) or inbox item.
 Everywhere: --json for machine-readable output.`;
@@ -719,6 +848,13 @@ const commands = {
     const [sub, ...rest] = pos;
     const fn = taskCommands[sub || 'list'];
     if (!fn) throw new Error(`Unknown: keepr task ${sub}. See keepr help.`);
+    fn({ pos: rest, opt });
+  },
+
+  plan({ pos, opt }) {
+    const [sub, ...rest] = pos;
+    const fn = planCommands[sub || 'show'];
+    if (!fn) throw new Error(`Unknown: keepr plan ${sub}. See keepr help.`);
     fn({ pos: rest, opt });
   },
 
@@ -874,6 +1010,57 @@ const inboxCommands = {
     out(opt, i, `Deleted: ${i.id} – ${i.title}`);
   },
 };
+
+// "09:00-10:30" or "9-10.30" → [start, end]
+function timeRange(v) {
+  const m = String(v || '').match(/^([\d:.]+)\s*[-–]\s*([\d:.]+)$/);
+  if (!m) throw new Error(`Time range missing or invalid ("${v ?? ''}") – e.g. 09:00-10:30`);
+  return [m[1], m[2]];
+}
+const taskArg = (v) => v === undefined ? undefined : v === 'none' ? null : v;
+
+const planCommands = {
+  show({ pos, opt }) {
+    const date = parseDate(opt.date || pos[0]);
+    const d = readData(requireRoot());
+    out(opt, dayBlocks(d, date), fmtPlan(d, date));
+  },
+  add({ pos, opt }) {
+    const [start, end] = timeRange(pos[0]);
+    const b = mutate(requireRoot({ create: true }), d => ops['plan.add'](d, {
+      date: opt.date, start, end, title: opt.free ? '' : pos.slice(1).join(' '), taskId: opt.task, note: opt.note,
+    }));
+    out(opt, b, `Planned: ${b.id} ${b.date} ${b.start}–${b.end}${isFreeBlock(b) ? ' (free window)' : ''}`);
+  },
+  free({ pos, opt }) { planCommands.add({ pos: [pos[0]], opt: { ...opt, free: true } }); },
+  update({ pos, opt }) {
+    const [start, end] = opt.time ? timeRange(opt.time) : [];
+    const b = mutate(requireRoot(), d => ops['plan.update'](d, {
+      id: pos[0], patch: { date: opt.date, start, end, title: opt.title, taskId: taskArg(opt.task), note: opt.note },
+    }));
+    const d = readData(requireRoot());
+    out(opt, b, fmtBlock(b, d));
+  },
+  done({ pos, opt }) { setBlockDone(pos, opt, true); },
+  undone({ pos, opt }) { setBlockDone(pos, opt, false); },
+  rm({ pos, opt }) {
+    const bs = mutate(requireRoot(), d => pos.map(id => ops['plan.delete'](d, { id })));
+    out(opt, bs, bs.map(b => `Removed: ${b.id} ${b.date} ${b.start}–${b.end}`).join('\n'));
+  },
+  autofill({ pos, opt }) {
+    const root = requireRoot();
+    const date = parseDate(opt.date || pos[0]);
+    const added = mutate(root, d => ops['plan.autofill'](d, { date, maxMinutes: opt.max || 90 }));
+    out(opt, added, `${added.length} block(s) filled.\n${fmtPlan(readData(root), date)}`);
+  },
+};
+
+function setBlockDone(pos, opt, done) {
+  const root = requireRoot();
+  const bs = mutate(root, d => pos.map(id => ops['plan.update'](d, { id, patch: { done } })));
+  const d = readData(root);
+  out(opt, bs, bs.map(b => fmtBlock(b, d)).join('\n'));
+}
 
 function setInboxStatus({ pos, opt }, status) {
   const items = mutate(requireRoot(), d => pos.map(id => ops['inbox.update'](d, { id, patch: { status } })));
@@ -1145,6 +1332,39 @@ const MCP_TOOLS = [
     },
   },
   {
+    name: 'get_day_plan',
+    description: 'Shows the day plan of a date (blocks B1, B2 …: own entries, linked tasks and free windows the user marked for you to fill) plus the open tasks to choose from. Use before planning a day, for "plan my day", "what is on today", "tagesplan".',
+    inputSchema: { type: 'object', properties: { date: STR('YYYY-MM-DD, today (default) or tomorrow'), ...PROJECT_PROP } },
+  },
+  {
+    name: 'add_plan_blocks',
+    description: 'Adds time blocks to a day plan. A block links a keepr task (task) or is an own entry (title, e.g. "Lunch", "Emails", "Buffer"). Blocks inside a free window fill it (the window shrinks or splits); overlapping other blocks is an error. To fill free windows: call get_day_plan first, then plan realistic blocks (deadlines and priority first, breaks and buffer included) and briefly explain the choice to the user.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        date: STR('YYYY-MM-DD, today (default) or tomorrow'),
+        blocks: {
+          type: 'array',
+          items: { type: 'object', properties: { start: STR('HH:MM'), end: STR('HH:MM'), task: STR('e.g. T3'), title: STR('own entry, or a more specific title for the task'), note: STR('Why / what exactly') }, required: ['start', 'end'] },
+        },
+        ...PROJECT_PROP,
+      },
+      required: ['blocks'],
+    },
+  },
+  {
+    name: 'update_plan_block',
+    description: 'Changes a block of the day plan: time, date, title, linked task (task: "" unlinks), note, done; remove: true deletes it.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: STR('e.g. B3'), start: STR('HH:MM'), end: STR('HH:MM'), date: STR('YYYY-MM-DD'), title: { type: 'string' }, task: STR('e.g. T3, "" to unlink'),
+        note: { type: 'string' }, done: { type: 'boolean' }, remove: { type: 'boolean' }, ...PROJECT_PROP,
+      },
+      required: ['id'],
+    },
+  },
+  {
     name: 'open_dashboard',
     description: 'Starts the keepr dashboard (if needed) and returns its link; with open=true it opens in the browser.',
     inputSchema: { type: 'object', properties: { open: { type: 'boolean' }, ...PROJECT_PROP } },
@@ -1285,6 +1505,24 @@ function mcpTools(defaultProject) {
       const t = mutate(root(a), d => ops['task.delete'](d, { id: a.id }));
       return `Deleted: ${t.id} – ${t.title}`;
     },
+    get_day_plan(a) {
+      const r = root(a), d = readData(r), date = parseDate(a.date);
+      const planned = new Set(dayBlocks(d, date).map(b => b.taskId));
+      const open = d.tasks.filter(t => t.status !== 'done' && !planned.has(t.id))
+        .sort((x, y) => PRIORITIES.indexOf(x.priority) - PRIORITIES.indexOf(y.priority) || (x.due || '9').localeCompare(y.due || '9'));
+      return `${fmtPlan(d, date)}\n\nNext up:\n${fmtNext(nextTasks(d.tasks, date))}\n\nOpen tasks not planned that day:\n${open.map(fmtTask).join('\n') || '(none)'}\n\n${dashUrl(r, 'day')}`;
+    },
+    add_plan_blocks(a) {
+      const r = root(a), date = parseDate(a.date);
+      mutate(r, d => { for (const b of a.blocks || []) ops['plan.add'](d, { date, start: b.start, end: b.end, title: b.title, taskId: b.task, note: b.note, by: 'ai' }); });
+      return fmtPlan(readData(r), date);
+    },
+    update_plan_block(a) {
+      const r = root(a);
+      const b = mutate(r, d => a.remove ? ops['plan.delete'](d, { id: a.id })
+        : ops['plan.update'](d, { id: a.id, patch: { start: a.start, end: a.end, date: a.date, title: a.title, taskId: a.task === undefined ? undefined : a.task || null, note: a.note, done: a.done } }));
+      return a.remove ? `Removed: ${b.id}` : fmtPlan(readData(r), b.date);
+    },
     async open_dashboard(a) {
       let url = `http://127.0.0.1:${PORT}/`;
       try { url = dashUrl(root(a)); } catch {}
@@ -1309,7 +1547,7 @@ function mcpServer(defaultProject = process.env.KEEPR_PROJECT || process.env.WF_
           protocolVersion: params?.protocolVersion || '2025-06-18',
           capabilities: { tools: {} },
           serverInfo: pkg,
-          instructions: 'keepr keeps, per project, a list of saved AI answers (A1, A2 …, with points that can be checked off), an inbox of things still to clarify (I1, I2 …) and Kanban-style tasks (T1, T2 …, with subtasks and links between tasks). The user sees everything live in the dashboard. On "keep this" / "merk dir das" → save_answer; "still needs clarifying" / "noch klären" → add_inbox_item; when an ID is referenced → get_answer/get_task/get_inbox_item; record progress with update_*. Give every new answer, task and inbox item an origin (which question or observation led to it); if the reasoning behind it is unclear, ask the user. After changes, reply briefly with the affected IDs.',
+          instructions: 'keepr keeps, per project, a list of saved AI answers (A1, A2 …, with points that can be checked off), an inbox of things still to clarify (I1, I2 …) and Kanban-style tasks (T1, T2 …, with subtasks and links between tasks) and a day plan of time blocks (B1, B2 …; "plan my day" → get_day_plan, then add_plan_blocks to fill the free windows). The user sees everything live in the dashboard. On "keep this" / "merk dir das" → save_answer; "still needs clarifying" / "noch klären" → add_inbox_item; when an ID is referenced → get_answer/get_task/get_inbox_item; record progress with update_*. Give every new answer, task and inbox item an origin (which question or observation led to it); if the reasoning behind it is unclear, ask the user. After changes, reply briefly with the affected IDs.',
         } });
       }
       if (method === 'ping') return send({ id, result: {} });

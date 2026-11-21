@@ -201,7 +201,7 @@ keepr dash        # starts the server if needed and opens the browser
 
 The address is `http://127.0.0.1:4747` (change the port with `KEEPR_PORT`). Every project where `keepr` has been used shows up in the project dropdown. Shortcuts: `/` focuses the search, `Esc` closes the detail panel.
 
-The dashboard has three tabs:
+The dashboard has four tabs:
 
 - **Answers**: saved AI answers with their points.
 - **Inbox**: things to clarify. Type into the field at the top and press Enter to capture something. Notes are Markdown. "→ Task" creates a task from the item (title and notes are taken over) and marks the item as clarified. The statuses are *open*, *clarified* and *dropped*.
@@ -209,6 +209,9 @@ The dashboard has three tabs:
   - **Subtasks**: click a subtask (or ✎) to set its status and description. Subtasks in progress or in review show a badge, and ¶ marks one with a description.
   - **Links**: choose *Related to*, *Blocks* or *Blocked by* and enter a task ID or title. Links show up in both tasks. A task blocked by an unfinished task gets a ⛔ on the board.
   - **References**: IDs like `T5`, `A3` or `I2` in descriptions, notes, comments and subtasks become clickable links. Click a description to edit it.
+- **Day**: a day plan as a time grid (‹ Today › to switch days). Click a slot or drag across several to select a time window, then give it a title (own entry like "Lunch"), link a keepr task, or keep it as a *free window*. Drag tasks from the side list onto the grid or into a free window. Blocks have IDs `B1`, `B2` … and a done checkbox.
+  - **Let the AI plan**: "⧉ Prompt for AI" copies a prompt for any agent (Claude, ChatGPT/Codex, …). With the MCP tools `get_day_plan` / `add_plan_blocks` or the CLI (`keepr plan …`) it fills the free windows, and the grid updates live. A block placed inside a free window shrinks or splits that window; other overlaps are refused.
+  - **Auto-fill** fills free windows without AI: overdue, due soon and urgent tasks first, at most 90 minutes per block.
 
 ### Pomodoro timer
 
@@ -242,6 +245,8 @@ keepr next                                              # overdue, due within 7 
 keepr task sub T1 2 --status in_progress --desc "…"     # subtask status and description
 keepr task link T1 T2 --type blocked_by | keepr task unlink T1 T2
 keepr inbox add "Clarify: …" --note "…" | keepr inbox | keepr inbox note I1 "…" | keepr inbox task I1 --prio high
+keepr plan [tomorrow] | keepr plan free 14:00-17:00 | keepr plan add 9-10:30 --task T3 | keepr plan add 12-13 "Lunch"
+keepr plan autofill | keepr plan done B2 | keepr plan update B2 --time 10:00-11:00 | keepr plan rm B2
 ```
 
 `keepr save` reads the answer directly from the Claude Code transcript (`~/.claude/projects/…`), so the AI doesn't have to retype it. It saves the answer text after the last tool call, which is the actual answer without progress messages. `--full` includes all texts of the turn, and `--stdin` lets you pass any content.

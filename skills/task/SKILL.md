@@ -1,6 +1,6 @@
 ---
 name: task
-description: Manages the project tasks in the keepr dashboard (Kanban-style: status, priority, due date, subtasks with status and description, links between tasks, comments) – create, list, change status, check off, link, comment, open the dashboard. Use when the user says /task, "create a task", "add a todo", "what's next", "which tasks are open", "set T3 to done", "open the dashboard", or in German "leg eine aufgabe an", "als todo", "was steht an", "welche aufgaben sind offen", "öffne das dashboard", or when you finish work that corresponds to an open keepr task.
+description: Manages the project tasks in the keepr dashboard (Kanban-style: status, priority, due date, subtasks with status and description, links between tasks, comments) – create, list, change status, check off, link, comment, open the dashboard. Use when the user says /task, "create a task", "add a todo", "what's next", "which tasks are open", "set T3 to done", "open the dashboard", or in German "leg eine aufgabe an", "als todo", "was steht an", "welche aufgaben sind offen", "öffne das dashboard", when the user wants a day plan ("plan my day", "fill my free windows", "tagesplan", "plan mir den tag"), or when you finish work that corresponds to an open keepr task.
 ---
 
 # Manage tasks (keepr)
@@ -23,6 +23,12 @@ keepr task sub T3 2 --done                # check off (--undone, --remove)
 keepr task sub T3 2 --status review --desc "What is left"   # subtask status / description
 keepr task link T3 T5 --type blocked_by   # T3 waits for T5 (relates | blocks | blocked_by)
 keepr task unlink T3 T5
+
+# Day plan: time blocks B1, B2 … (own entries, linked tasks, free windows the user marked for you)
+keepr plan [today|tomorrow|YYYY-MM-DD]    # show blocks + free windows
+keepr plan add 09:00-10:30 --task T3 [--note "why"] [--date D]   # a task block (fills a free window it lies in)
+keepr plan add 12:00-12:45 "Lunch"        # own entry; no title and no --task = free window
+keepr plan update B3 --time 10:00-11:00 | keepr plan done B3 | keepr plan rm B3
 keepr task comment T3 "What was done / result"
 keepr task rm T3
 keepr dash                                # open the dashboard in the browser
@@ -52,6 +58,10 @@ Links show up in both tasks; a task that is `blocked_by` an unfinished task gets
 - **When you work on a task yourself**: `keepr task start T<n>` at the start, set the subtask you
   are working on to `--status in_progress` and check off subtasks as you finish them, at the end add a result comment and run `keepr task review T<n>` (the user
   sets it to `done`) – unless the user tells you to close it directly.
+- **Day plan** ("plan my day", "tagesplan"): run `keepr plan [date]` and `keepr next`, then fill the
+  free windows with `keepr plan add HH:MM-HH:MM --task T<n> --note "…"` – deadlines and priority first,
+  realistic lengths, short breaks and buffer. If no free window is marked, propose a plan and ask
+  before adding it. Explain the choice briefly.
 - Create several tasks in one Bash call joined with `&&`.
 - Reply briefly: which IDs were created/changed.
 
