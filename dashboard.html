@@ -6,20 +6,23 @@
 <title>keepr</title>
 <style>
 :root {
-  --bg: #f6f6f4; --panel: #ffffff; --panel-2: #f0efec; --line: #e2e0db; --text: #1f1f1d; --muted: #6d6b66;
+  --pop-bg: #ffffff; --pop-border: #cdc9c1; --scrim: rgba(25,24,20,.16); --pop-shadow: 0 1px 2px rgba(0,0,0,.06), 0 4px 10px rgba(0,0,0,.07), 0 20px 48px rgba(0,0,0,.20);
+  --plant-l: 30%; --bg: #f6f6f4; --panel: #ffffff; --panel-2: #f0efec; --line: #e2e0db; --text: #1f1f1d; --muted: #6d6b66;
   --accent: #5b5bd6; --accent-soft: #ececfb; --ok: #2f8f5b; --warn: #c27a12; --bad: #c4423c; --info: #2f6fb7;
+  --sp: 1.25; /* spacing scale, set from the settings menu */
+  --timer-font: ui-rounded, "SF Pro Rounded", Nunito, "Varela Round", Quicksand, Cantarell, "Fira Sans", system-ui, sans-serif;
   --radius: 10px; --shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 14px rgba(0,0,0,.04);
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #161615; --panel: #1f1f1d; --panel-2: #272725; --line: #34332f; --text: #ecebe7; --muted: #9a9890;
+    --pop-bg: #2c2c29; --pop-border: #4b4a45; --scrim: rgba(0,0,0,.42); --pop-shadow: 0 1px 2px rgba(0,0,0,.35), 0 4px 12px rgba(0,0,0,.35), 0 22px 56px rgba(0,0,0,.55); --plant-l: 40%; --bg: #161615; --panel: #1f1f1d; --panel-2: #272725; --line: #34332f; --text: #ecebe7; --muted: #9a9890;
     --accent: #8b8bf0; --accent-soft: #2b2b45; --ok: #5cc38b; --warn: #e3a64a; --bad: #ec746d; --info: #6ea8ea;
     --shadow: none; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #161615; --panel: #1f1f1d; --panel-2: #272725; --line: #34332f; --text: #ecebe7; --muted: #9a9890;
+  --pop-bg: #2c2c29; --pop-border: #4b4a45; --scrim: rgba(0,0,0,.42); --pop-shadow: 0 1px 2px rgba(0,0,0,.35), 0 4px 12px rgba(0,0,0,.35), 0 22px 56px rgba(0,0,0,.55); --plant-l: 40%; --bg: #161615; --panel: #1f1f1d; --panel-2: #272725; --line: #34332f; --text: #ecebe7; --muted: #9a9890;
   --accent: #8b8bf0; --accent-soft: #2b2b45; --ok: #5cc38b; --warn: #e3a64a; --bad: #ec746d; --info: #6ea8ea;
   --shadow: none; color-scheme: dark;
 }
@@ -36,6 +39,59 @@ header { display: flex; align-items: center; gap: 12px; padding: 10px 16px; bord
 .brand { font-weight: 700; letter-spacing: -.01em; display: flex; align-items: center; gap: 8px; }
 .brand .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
 .brand .dot.live { background: var(--ok); }
+button.brand { border: 0; background: none; color: inherit; font: inherit; font-weight: 700; padding: 4px 6px; margin: -4px -6px; border-radius: 6px; cursor: pointer; }
+button.brand:hover, button.brand[aria-expanded="true"] { background: var(--panel-2); }
+.settings-pop { position: fixed; top: 52px; left: 16px; width: min(980px, calc(100vw - 32px)); height: min(720px, calc(100vh - 72px)); background: var(--pop-bg); border: 1px solid var(--pop-border); border-radius: 16px; box-shadow: var(--pop-shadow); z-index: 15; display: grid; grid-template-columns: 220px minmax(0, 1fr); overflow: hidden; }
+.settings-pop[hidden] { display: none; }
+/* Popovers (settings, pomodoro): elevated surface, dimmed page behind, pointer to the trigger */
+.settings-pop:not([hidden]), .pomo-pop:not([hidden]) { animation: pop-in .14s ease-out; }
+@keyframes pop-in { from { opacity: 0; transform: translateY(-4px) scale(.98); } }
+.pop-scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 14; opacity: 0; pointer-events: none; transition: opacity .15s ease; }
+.pop-scrim.on { opacity: 1; pointer-events: auto; }
+.pop-caret { position: fixed; width: 12px; height: 12px; background: var(--pop-bg); border: 1px solid var(--pop-border); border-right: 0; border-bottom: 0; transform: rotate(45deg); z-index: 16; pointer-events: none; }
+.pop-caret[hidden] { display: none; }
+.settings-pop input, .settings-pop .input, .pomo-pop .input, .pomo-pop .seg button { background: var(--panel-2); }
+@media (prefers-reduced-motion: reduce) { .settings-pop, .pomo-pop { animation: none !important; } }
+.settings-pop * { min-width: 0; overflow-wrap: anywhere; }
+.settings-pop .set-nav { display: flex; flex-direction: column; gap: 4px; padding: calc(24px * var(--sp)) calc(14px * var(--sp)); background: var(--panel-2); border-right: 1px solid var(--line); overflow-y: auto; }
+.settings-pop .set-nav h3 { margin: 0 10px calc(14px * var(--sp)); font-size: 18px; font-weight: 650; }
+.settings-pop .set-nav button { text-align: left; border: 0; background: transparent; color: var(--text); font-size: 15px; padding: calc(9px * var(--sp)) 12px; border-radius: 9px; }
+.settings-pop .set-nav button:hover { background: var(--pop-bg); }
+.settings-pop .set-nav button.on { background: var(--accent-soft); color: var(--accent); font-weight: 650; box-shadow: inset 3px 0 var(--accent); }
+.settings-pop .set-main { overflow-y: auto; padding: calc(28px * var(--sp)) calc(34px * var(--sp)); display: grid; align-content: start; gap: calc(16px * var(--sp)); }
+.settings-pop .set-head { padding-bottom: calc(14px * var(--sp)); border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+.settings-pop .set-head h2 { margin: 0; font-size: 22px; font-weight: 650; color: var(--text); }
+.settings-pop .set-head p { margin: 6px 0 0; font-size: 14px; color: var(--muted); }
+.settings-pop .set-note { margin: 0; font-size: 13px; color: var(--muted); }
+.settings-pop .set-vrow { display: grid; gap: 6px; }
+.settings-pop .set-mode { justify-self: start; margin-left: 108px; border-radius: 8px; }
+.settings-pop .set-mode button { padding: 3px 12px; font-size: 12.5px; }
+.settings-pop .set-row.dim input[type="range"] { opacity: .4; }
+.settings-pop .set-spread { font-size: 13px; color: var(--muted); }
+.settings-pop .set-spread > span:first-child { padding-left: 12px; }
+@media (max-width: 520px) { .settings-pop .set-mode { margin-left: 0; } }
+.settings-pop .set-sub { margin: calc(10px * var(--sp)) 0 0; font-size: 16px; font-weight: 650; color: var(--text); display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.settings-pop .set-sub:first-of-type { margin-top: 0; }
+.settings-pop .set-sub small { font-size: 13px; font-weight: 400; color: var(--muted); }
+.settings-pop .set-seg { justify-self: start; border-radius: 9px; }
+.settings-pop .set-seg button { padding: calc(7px * var(--sp)) 16px; font-size: 14px; }
+/* one feature per group: its switch on top, its own settings in a tinted panel below */
+.settings-pop .set-grp { display: grid; gap: calc(12px * var(--sp)); padding: calc(14px * var(--sp)) calc(16px * var(--sp)); border: 1px solid var(--line); border-radius: 11px; }
+.settings-pop .set-body { display: grid; gap: calc(12px * var(--sp)); padding: calc(12px * var(--sp)) calc(14px * var(--sp)); margin-left: 28px; background: var(--panel-2); border-radius: 9px; }
+.settings-pop .opt { display: flex; align-items: flex-start; gap: 12px; cursor: pointer; font-size: 15px; font-weight: 550; }
+.settings-pop .set-body .opt { font-size: 14px; }
+.settings-pop .opt > span { flex: 1; }
+.settings-pop .opt input[type="checkbox"] { width: 18px; height: 18px; margin-top: 2px; flex: none; accent-color: var(--accent); }
+.settings-pop .opt small { display: block; color: var(--muted); font-size: 13px; font-weight: 400; margin-top: 2px; }
+.settings-pop .set-row { display: grid; grid-template-columns: 96px minmax(0, 1fr) 92px; align-items: center; gap: 12px; font-size: 14px; }
+.settings-pop .set-row input[type="range"] { width: 100%; accent-color: var(--accent); }
+.settings-pop .set-row .val { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+.settings-pop .set-num { display: flex; align-items: center; gap: 10px; grid-column: span 2; }
+.settings-pop .set-num .input { width: 76px; padding: calc(6px * var(--sp)) 10px; font-size: 14px; border-radius: 8px; flex: none; background: var(--pop-bg); }
+.settings-pop .set-num small { color: var(--muted); font-size: 13px; }
+.settings-pop .off { opacity: .45; pointer-events: none; }
+@media (max-width: 640px) { .settings-pop { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); } .settings-pop .set-nav { flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--line); padding: 14px; } .settings-pop .set-nav h3 { width: 100%; margin-bottom: 4px; } }
+@media (max-width: 520px) { .settings-pop .set-row { grid-template-columns: 1fr auto; } .settings-pop .set-row input[type="range"] { grid-column: 1 / -1; grid-row: 2; } .settings-pop .set-body { margin-left: 0; } }
 .tabs { display: flex; gap: 2px; background: var(--panel-2); padding: 3px; border-radius: 8px; }
 .tabs button { border: 0; background: transparent; padding: 5px 12px; border-radius: 6px; color: var(--muted); }
 .tabs button.on { background: var(--panel); color: var(--text); box-shadow: var(--shadow); font-weight: 600; }
@@ -72,7 +128,7 @@ main { overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
 .overdue { color: var(--bad); font-weight: 600; }
 
 /* toolbar */
-.toolbar { display: flex; gap: 8px; align-items: center; padding: 10px 16px; flex-wrap: wrap; }
+.toolbar { display: flex; gap: calc(8px * var(--sp)); align-items: center; padding: calc(10px * var(--sp)) 16px; flex-wrap: wrap; }
 .seg { display: flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
 .seg button { border: 0; background: var(--panel); padding: 4px 10px; color: var(--muted); border-right: 1px solid var(--line); }
 .seg button:last-child { border-right: 0; }
@@ -81,25 +137,33 @@ main { overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
 /* answers */
 .split { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; flex: 1; min-height: 0; border-top: 1px solid var(--line); }
 .alist { overflow: auto; border-right: 1px solid var(--line); background: var(--panel); }
-.aitem { padding: 11px 16px; border-bottom: 1px solid var(--line); cursor: pointer; display: grid; gap: 4px; }
+.aitem { padding: calc(12px * var(--sp)) calc(16px * var(--sp)); border-bottom: 1px solid var(--line); cursor: pointer; display: grid; gap: calc(5px * var(--sp)); }
 .aitem:hover { background: var(--panel-2); }
 .aitem.sel { background: var(--accent-soft); box-shadow: inset 3px 0 var(--accent); }
 .aitem .top { display: flex; gap: 8px; align-items: center; }
-.aitem .title { font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aitem .title { font-weight: 600; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+/* list column: everything wraps inside it instead of pushing under the detail pane */
+.aitem { grid-template-columns: minmax(0, 1fr); }
+.aitem > *, .aitem .meta > * { min-width: 0; }
+.aitem .top { align-items: flex-start; }
+.aitem .top .sdot { margin-top: 6px; }
+.aitem .top .id { flex: none; padding-top: 2px; }
+.aitem .sum { overflow-wrap: anywhere; }
+.aitem .chip { white-space: normal; overflow-wrap: anywhere; max-width: 100%; }
 .aitem .sum { color: var(--muted); font-size: 13px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .aitem .meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12px; }
-.adetail { overflow: auto; padding: 22px 28px 60px; }
+.adetail { overflow: auto; padding: calc(24px * var(--sp)) calc(30px * var(--sp)) 60px; }
 .adetail .head { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
 .title-edit { font-size: 20px; font-weight: 700; border: 1px solid transparent; background: transparent; border-radius: 6px; padding: 2px 6px; margin-left: -7px; flex: 1; min-width: 200px; }
 .title-edit:hover, .title-edit:focus { border-color: var(--line); background: var(--panel); outline: none; }
 .actions { display: flex; gap: 6px; flex-wrap: wrap; margin: 12px 0 18px; }
-.section { margin-top: 22px; }
+.section { margin-top: calc(22px * var(--sp)); }
 .section > h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; display: flex; align-items: center; gap: 8px; }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 18px; box-shadow: var(--shadow); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: calc(14px * var(--sp)) calc(18px * var(--sp)); box-shadow: var(--shadow); }
 .prompt { background: var(--panel-2); border-radius: var(--radius); padding: 10px 14px; white-space: pre-wrap; color: var(--muted); max-height: 160px; overflow: auto; }
 
 /* checklist */
-.check { display: flex; gap: 10px; align-items: flex-start; padding: 6px 4px; border-radius: 6px; }
+.check { display: flex; gap: 10px; align-items: flex-start; padding: calc(6px * var(--sp)) calc(6px * var(--sp)); border-radius: 6px; }
 .check:hover { background: var(--panel-2); }
 .check input[type=checkbox] { margin-top: 3px; accent-color: var(--accent); width: 15px; height: 15px; flex: none; }
 .check .txt { flex: 1; }
@@ -124,13 +188,13 @@ main { overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
 .md ul, .md ol { padding-left: 1.4em; }
 
 /* tasks: board */
-.board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(260px, 1fr); gap: 12px; padding: 4px 16px 16px; overflow: auto; flex: 1; min-height: 0; }
+.board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(260px, 1fr); gap: calc(12px * var(--sp)); padding: 4px 16px 16px; overflow: auto; flex: 1; min-height: 0; }
 .col { background: var(--panel-2); border-radius: var(--radius); display: flex; flex-direction: column; min-height: 0; }
-.col-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px 6px; font-weight: 600; font-size: 13px; }
+.col-head { display: flex; align-items: center; gap: 8px; padding: calc(10px * var(--sp)) calc(12px * var(--sp)) calc(6px * var(--sp)); font-weight: 600; font-size: 13px; }
 .col-head .n { color: var(--muted); font-weight: 500; }
-.col-body { padding: 4px 8px 8px; overflow: auto; flex: 1; display: flex; flex-direction: column; gap: 8px; min-height: 60px; }
+.col-body { padding: calc(4px * var(--sp)) calc(8px * var(--sp)) calc(8px * var(--sp)); overflow: auto; flex: 1; display: flex; flex-direction: column; gap: calc(8px * var(--sp)); min-height: 60px; }
 .col.over { outline: 2px dashed var(--accent); outline-offset: -2px; }
-.tcard { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; cursor: pointer; display: grid; gap: 6px; box-shadow: var(--shadow); }
+.tcard { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: calc(9px * var(--sp)) calc(11px * var(--sp)); cursor: pointer; display: grid; gap: calc(6px * var(--sp)); box-shadow: var(--shadow); }
 .tcard:hover { border-color: var(--muted); }
 .tcard.dragging { opacity: .4; }
 .tcard .t { font-weight: 550; }
@@ -141,18 +205,18 @@ main { overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
 .quick:hover { color: var(--text); border-color: var(--muted); }
 
 /* tasks: list */
-.nextup { margin: 0 16px 10px; padding: 10px 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 6px 16px; }
+.nextup { margin: 0 16px 10px; padding: calc(10px * var(--sp)) calc(12px * var(--sp)); display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 6px 16px; }
 .nextup > h3 { grid-column: 1 / -1; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0; }
 .nextup .ng-head { font-size: 12.5px; font-weight: 600; margin-bottom: 2px; }
 .nextup .ng-head.overdue { color: var(--bad); }
-.nextup .nrow { display: flex; gap: 8px; align-items: baseline; padding: 3px 6px; margin: 0 -6px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.nextup .nrow { display: flex; gap: 8px; align-items: baseline; padding: calc(3px * var(--sp)) 6px; margin: 0 -6px; border-radius: 6px; cursor: pointer; font-size: 13px; }
 .nextup .nrow:hover { background: var(--panel-2); }
 .nextup .nrow .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nextup .nrow .meta { display: flex; gap: 6px; align-items: baseline; font-size: 12px; color: var(--muted); white-space: nowrap; }
 .tlist { overflow: auto; padding: 0 16px 24px; flex: 1; }
-.group { margin-top: 14px; }
+.group { margin-top: calc(14px * var(--sp)); }
 .group-head { display: flex; align-items: center; gap: 8px; font-weight: 600; padding: 6px 2px; }
-.trow { display: grid; grid-template-columns: 54px 1fr 130px 100px 110px 70px; align-items: center; gap: 10px; padding: 7px 10px; background: var(--panel); border: 1px solid var(--line); border-top: 0; cursor: pointer; }
+.trow { display: grid; grid-template-columns: 54px 1fr 130px 100px 110px 70px; align-items: center; gap: 10px; padding: calc(7px * var(--sp)) calc(10px * var(--sp)); background: var(--panel); border: 1px solid var(--line); border-top: 0; cursor: pointer; }
 .trow:first-of-type { border-top: 1px solid var(--line); border-radius: 8px 8px 0 0; }
 .trow:last-child { border-radius: 0 0 8px 8px; }
 .trow:only-of-type { border-radius: 8px; }
@@ -164,12 +228,12 @@ main { overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
 /* drawer */
 .drawer-bg { position: fixed; inset: 0; background: rgba(0,0,0,.25); display: none; z-index: 10; }
 .drawer-bg.open { display: block; }
-.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(620px, 100vw); background: var(--bg); border-left: 1px solid var(--line); z-index: 11; transform: translateX(100%); transition: transform .18s ease; overflow: auto; padding: 18px 24px 60px; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(620px, 100vw); background: var(--bg); border-left: 1px solid var(--line); z-index: 11; transform: translateX(100%); transition: transform .18s ease; overflow: auto; padding: calc(18px * var(--sp)) calc(24px * var(--sp)) 60px; }
 .drawer.open { transform: none; }
-.props { display: grid; grid-template-columns: 110px 1fr; gap: 8px 12px; align-items: center; margin: 14px 0; }
+.props { display: grid; grid-template-columns: 110px 1fr; gap: calc(8px * var(--sp)) 12px; align-items: center; margin: 14px 0; }
 .props label { color: var(--muted); font-size: 13px; }
 textarea.desc { width: 100%; min-height: 120px; resize: vertical; }
-.comment { padding: 8px 12px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); margin-bottom: 6px; }
+.comment { padding: calc(8px * var(--sp)) calc(12px * var(--sp)); border-radius: 8px; background: var(--panel); border: 1px solid var(--line); margin-bottom: 6px; }
 .comment.ai { border-left: 3px solid var(--accent); }
 .comment .who { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
 
@@ -203,16 +267,66 @@ a.ref.done { text-decoration: line-through; opacity: .7; }
 .pomo-btn { font-variant-numeric: tabular-nums; }
 .pomo-btn.running[data-m="focus"] { color: var(--bad); border-color: var(--bad); }
 .pomo-btn.running:not([data-m="focus"]) { color: var(--ok); border-color: var(--ok); }
-.pomo-pop { position: fixed; top: 52px; right: 16px; width: min(320px, calc(100vw - 32px)); background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 8px 30px rgba(0,0,0,.18); padding: 14px; z-index: 15; display: grid; gap: 10px; }
+.pomo-pop { position: fixed; top: 52px; right: 16px; width: min(600px, calc(100vw - 32px)); max-height: calc(100vh - 72px); overflow-y: auto; background: var(--pop-bg); border: 1px solid var(--pop-border); border-radius: 14px; box-shadow: var(--pop-shadow); padding: calc(28px * var(--sp)) calc(34px * var(--sp)); z-index: 15; display: grid; gap: calc(20px * var(--sp)); }
 .pomo-pop[hidden] { display: none; }
-.pomo-time { font: 700 44px/1 ui-monospace, SFMono-Regular, monospace; text-align: center; font-variant-numeric: tabular-nums; }
 .pomo-pop > * { min-width: 0; }
-.pomo-pop .seg button { flex: 1; padding: 4px 6px; }
-.pomo-pop select { width: 100%; }
-.pomo-pop .row { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
-.pomo-dots { text-align: center; color: var(--muted); font-size: 12px; letter-spacing: 2px; }
-.pomo-cfg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; font-size: 11px; color: var(--muted); }
-.pomo-cfg .input { width: 100%; padding: 3px 6px; }
+.pomo-pop .seg { border-radius: 10px; }
+.pomo-pop .seg button { flex: 1; padding: calc(9px * var(--sp)) 10px; font-size: 14px; }
+.pp-clock { display: grid; gap: 10px; justify-items: center; padding: calc(6px * var(--sp)) 0; }
+.pomo-time { font: 400 76px/1 var(--timer-font); text-align: center; font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+.pomo-dots { text-align: center; color: var(--muted); font-size: 13px; letter-spacing: 2px; }
+.pomo-pop .row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(10px * var(--sp)); }
+.pomo-pop .row .btn { justify-content: center; padding: calc(10px * var(--sp)) 14px; font-size: 15px; border-radius: 10px; gap: 8px; }
+.ico { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.pp-sec { display: grid; gap: calc(10px * var(--sp)); padding-top: calc(16px * var(--sp)); border-top: 1px solid var(--line); }
+.pp-sec h4 { margin: 0; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.pomo-pop select { width: 100%; padding: calc(8px * var(--sp)) 10px; font-size: 14px; border-radius: 9px; }
+.pomo-cfg { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: calc(12px * var(--sp)) 16px; font-size: 13px; }
+.pomo-cfg label { display: grid; gap: 5px; color: var(--text); }
+.pomo-cfg .pc-in { display: flex; align-items: center; gap: 8px; }
+.pomo-cfg .pc-in small { color: var(--muted); font-size: 12px; }
+.pomo-cfg .input { width: 72px; padding: calc(6px * var(--sp)) 10px; font-size: 14px; border-radius: 8px; flex: none; }
+/* idle focus view: the running timer grows to the centre, shrinks back into the button on activity */
+.pomo-veil { position: fixed; inset: 0; background: rgba(0,0,0,.28); opacity: 0; pointer-events: none; z-index: 40; transition: opacity .6s ease; }
+.pomo-veil.on { opacity: 1; }
+.pomo-veil.blur { backdrop-filter: blur(var(--veil-blur, 6px)); -webkit-backdrop-filter: blur(var(--veil-blur, 6px)); }
+.pomo-big { position: fixed; left: 50%; top: 50%; z-index: 41; pointer-events: none; transform-origin: center;
+  width: min(880px, calc(100vw - 48px)); padding: 24px 64px 32px; display: grid; gap: 0; justify-items: center;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 20px 60px rgba(0,0,0,.22);
+  transition: transform .6s cubic-bezier(.2,.8,.2,1), opacity .6s ease; }
+.pomo-big[hidden] { display: none; }
+.pomo-big .pb-mode { font-size: 14px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.pomo-big .pb-mode::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.pomo-big:not([data-m="focus"]) .pb-mode::before { background: var(--ok); }
+.pomo-big .pb-time { font: 400 clamp(88px, 22vw, 140px)/1 var(--timer-font); font-variant-numeric: tabular-nums; color: var(--text); letter-spacing: .01em; }
+.pomo-big .pb-bar { width: 100%; height: 6px; border-radius: 4px; background: var(--panel-2); overflow: hidden; }
+.pomo-big .pb-bar i { display: block; height: 100%; background: var(--accent); border-radius: 4px; transition: width 1s linear; }
+.pomo-big:not([data-m="focus"]) .pb-bar i { background: var(--ok); }
+/* Layout (same card height as before, ~320 px): phase label at the top edge, digits a little
+   above the middle (optical centre, ~42 %), progress and task below. The task line always keeps
+   its space so the layout never shifts. */
+.pomo-big .pb-time { margin-top: 15px; }
+.pomo-big .pb-bar { margin-top: 46px; }
+.pomo-big .pb-task { margin-top: 12px; min-height: 1.45em; font-size: 17px; color: var(--muted); text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* plant growing in from the screen edges as the focus phase runs out */
+.pomo-plant { position: absolute; inset: 0; width: 100%; height: 100%; }
+.pomo-plant[hidden] { display: none; }
+.pomo-plant .stem { fill: none; stroke: color-mix(in srgb, var(--ok) 70%, var(--text)); stroke-linecap: round; stroke-linejoin: round; transition: stroke-dashoffset 1s linear; }
+.pomo-plant .leaf, .pomo-plant .bloom { transform-box: view-box; transform-origin: 0 0; transform: scale(0); transition: transform 1.4s cubic-bezier(.2,.8,.2,1); }
+.pomo-plant .on { transform: scale(1); }
+/* depth: leaves and blossoms pop slightly towards the viewer before settling */
+.pomo-plant.depth .leaf, .pomo-plant.depth .bloom { transition-timing-function: cubic-bezier(.34,1.56,.64,1); }
+.pomo-plant .crack path { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset .9s ease-out; }
+.pomo-plant .crack .dk { stroke: rgba(0,0,0,.6); stroke-width: 1.8; }
+.pomo-plant .crack .hl { stroke: rgba(255,255,255,.5); stroke-width: 1.2; }
+.pomo-plant .crack .hole { fill: rgba(0,0,0,.6); stroke: none; transform-box: fill-box; transform-origin: center; transform: scale(0); transition: transform .5s ease-out; }
+.pomo-plant .crack.on path { stroke-dashoffset: 0; }
+.pomo-plant .crack.on .hole { transform: scale(1); }
+.pomo-plant g[hidden] { display: none; }
+.pomo-plant .leaf { fill: var(--ok); opacity: .85; }
+.pomo-plant .bloom circle { fill: var(--bloom, #f3b3c4); }
+.pomo-plant .bloom circle.c { fill: var(--bloom-c, #f2cf6b); }
+@media (prefers-reduced-motion: reduce) { .pomo-big, .pomo-veil, .pomo-plant * { transition: none; } }
 
 /* day plan */
 .day { flex: 1; min-height: 0; overflow: auto; display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; padding: 0 16px 24px; align-items: start; }
@@ -239,18 +353,18 @@ a.ref.done { text-decoration: line-through; opacity: .7; }
 .dblock.drop { box-shadow: 0 0 0 2px var(--accent); }
 .now-line { position: absolute; left: 52px; right: 0; height: 0; border-top: 2px solid var(--bad); z-index: 2; pointer-events: none; }
 .now-line::before { content: ''; position: absolute; left: -4px; top: -5px; width: 8px; height: 8px; border-radius: 50%; background: var(--bad); }
-.dside { display: grid; gap: 12px; position: sticky; top: 0; }
-.dside .card { padding: 12px 14px; }
+.dside { display: grid; gap: calc(12px * var(--sp)); position: sticky; top: 0; }
+.dside .card { padding: calc(12px * var(--sp)) calc(14px * var(--sp)); }
 .dside h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; display: flex; align-items: center; gap: 8px; }
-.deditor { display: grid; gap: 8px; }
+.deditor { display: grid; gap: calc(8px * var(--sp)); }
 .deditor .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .deditor .row > .input { flex: 1; min-width: 0; }
 .deditor input[type="time"] { flex: none; width: 110px; }
 .deditor textarea { min-height: 54px; resize: vertical; }
 .dsum { display: flex; gap: 14px; font-size: 13px; margin-bottom: 8px; }
 .dsum b { font-variant-numeric: tabular-nums; }
-.dtasks { display: grid; gap: 2px; max-height: 360px; overflow: auto; margin: 0 -6px; }
-.dtask { display: flex; gap: 8px; align-items: baseline; padding: 4px 6px; border-radius: 6px; cursor: grab; font-size: 13px; }
+.dtasks { display: grid; gap: calc(2px * var(--sp)); max-height: 360px; overflow: auto; margin: 0 -6px; }
+.dtask { display: flex; gap: 8px; align-items: baseline; padding: calc(4px * var(--sp)) 6px; border-radius: 6px; cursor: grab; font-size: 13px; }
 .dtask:hover { background: var(--panel-2); }
 .dtask .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dtask .meta { font-size: 12px; color: var(--muted); white-space: nowrap; display: flex; gap: 6px; }
@@ -276,7 +390,7 @@ a.ref.done { text-decoration: line-through; opacity: .7; }
 <body>
 <div class="app">
   <header>
-    <div class="brand"><span class="dot" id="live" title="Live connection"></span>keepr</div>
+    <button class="brand" id="brand" title="Settings"><span class="dot" id="live" title="Live connection"></span>keepr</button>
     <select class="input" id="project"></select>
     <div class="tabs" id="tabs">
       <button data-tab="answers">Answers<span class="count" id="c-answers"></span></button>
@@ -295,6 +409,11 @@ a.ref.done { text-decoration: line-through; opacity: .7; }
 <aside class="drawer" id="drawer"></aside>
 <div class="toast" id="toast"></div>
 <div class="pomo-pop" id="pomo-pop" hidden></div>
+<div class="pop-scrim" id="pop-scrim"></div>
+<div class="pop-caret" id="pop-caret" hidden></div>
+<div class="settings-pop" id="settings-pop" hidden></div>
+<div class="pomo-veil" id="pomo-veil"><svg class="pomo-plant" id="pomo-plant" hidden></svg></div>
+<div class="pomo-big" id="pomo-big" hidden></div>
 
 <script>
 const LABEL = {
@@ -1199,6 +1318,12 @@ const pomoSave = () => ls.set('pomo', P.s);
 const pomoDur = (mode) => P.s.cfg[mode] * 60000;
 const pomoLeft = () => P.s.running ? Math.max(0, P.s.endAt - Date.now()) : (P.s.left ?? pomoDur(P.s.mode));
 const mmss = (ms) => { const t = Math.ceil(ms / 1000); return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`; };
+// Simple line icons (round caps and joins, current text colour) for the pomodoro controls.
+const ICON = {
+  // counter-clockwise arrow: the circle runs from the top-left round to the left, the head points along it
+  reset: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="stroke-width:2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>',
+  skip: '<svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5.2c0-.8.9-1.3 1.6-.8l6.3 4.8c.5.4.5 1.2 0 1.6l-6.3 4.8c-.7.5-1.6 0-1.6-.8z"/><path d="M15.5 5v10"/></svg>',
+};
 const POMO_MODES = { focus: 'Focus', short: 'Short break', long: 'Long break' };
 
 function pomoStart(task) {
@@ -1223,6 +1348,8 @@ function pomoComplete(skipped = false) {
   const fresh = ls.get('pomo', {});
   if (!skipped && (!fresh.running || fresh.endAt !== P.s.endAt)) { pomoLoad(); return; } // another tab handled it
   const finished = P.s.mode;
+  // Phase ran out while the idle view is up: freeze it as a still image until the user is back.
+  pomoDone = !skipped && pomoBigOn ? { mode: finished, task: P.s.task, round: P.s.round } : null;
   if (finished === 'focus' && !skipped) {
     P.s.round++;
     if (P.s.task) opIn(P.s.task.project, 'task.pomodoro', { id: P.s.task.id, minutes: P.s.cfg.focus }).catch(() => {});
@@ -1246,7 +1373,24 @@ function pomoNotify(msg) {
   try { if (Notification.permission === 'granted') new Notification('keepr 🍅', { body: msg }); } catch {}
 }
 
-function pomoOpen(open = $('#pomo-pop').hidden) { $('#pomo-pop').hidden = !open; pomoPaint(true); }
+// Was the click inside one of these elements? Uses the path at click time, because a click often
+// re-renders the popover and detaches its target before this check runs.
+const clickedIn = (e, sel) => e.composedPath().some(n => n instanceof Element && n.matches(sel));
+// The pomodoro popover closes shortly after the pointer leaves it (not while a field in it is in use).
+let pomoLeaveTimer = null;
+function pomoHoverInit() {
+  const pop = $('#pomo-pop');
+  pop.addEventListener('mouseenter', () => clearTimeout(pomoLeaveTimer));
+  pop.addEventListener('mouseleave', (e) => {
+    if (e.relatedTarget && e.relatedTarget.closest?.('#pomo-btn')) return; // back onto its button
+    clearTimeout(pomoLeaveTimer);
+    pomoLeaveTimer = setTimeout(() => {
+      if (pop.hidden || pop.matches(':hover') || pop.contains(document.activeElement) && document.activeElement.matches('input, select')) return;
+      pomoOpen(false);
+    }, 400);
+  });
+}
+function pomoOpen(open = $('#pomo-pop').hidden) { if (open) settingsOpen(false); $('#pomo-pop').hidden = !open; pomoPaint(true); popSync(); }
 
 function pomoPaint(full = false) {
   if (!P.s) return;
@@ -1256,6 +1400,17 @@ function pomoPaint(full = false) {
   btn.classList.toggle('running', P.s.running);
   btn.dataset.m = P.s.mode;
   document.title = P.s.running ? `${P.s.mode === 'focus' ? '🍅' : '☕'} ${left} · keepr` : 'keepr';
+  const big = $('#pomo-big');
+  if (!big.hidden) {
+    const D = pomoDone, mode = D ? D.mode : P.s.mode, task = D ? D.task : P.s.task;
+    big.dataset.m = mode;
+    const done = D ? 100 : Math.min(100, 100 - pomoLeft() / pomoDur(mode) * 100);
+    big.innerHTML = `<div class="pb-mode">${D ? (mode === 'focus' ? 'Focus done' : 'Break over') : esc(POMO_MODES[mode])}</div>
+      <div class="pb-time">${D ? '00:00' : left}</div>
+      <div class="pb-bar"><i style="width:${done.toFixed(1)}%"></i></div>
+      <div class="pb-task">${task ? `${esc(task.id)} – ${esc(task.title || '')}` : ''}</div>`;
+  }
+  plantUpdate();
   const pop = $('#pomo-pop');
   if (pop.hidden) return;
   if (!full && $('#pomo-time')) { $('#pomo-time').textContent = left; return; }
@@ -1266,20 +1421,28 @@ function pomoPaint(full = false) {
   const every = P.s.cfg.every, inCycle = P.s.round % every;
   pop.innerHTML = `
     <div class="seg" id="pomo-modes">${Object.entries(POMO_MODES).map(([k, l]) => `<button data-m="${k}" class="${P.s.mode === k ? 'on' : ''}">${l}</button>`).join('')}</div>
-    <div class="pomo-time" id="pomo-time">${left}</div>
-    <div class="pomo-dots" title="Focus sessions in this cycle (long break after ${every})">${'●'.repeat(inCycle)}${'○'.repeat(every - inCycle)} · ${P.s.round} today</div>
+    <div class="pp-clock">
+      <div class="pomo-time" id="pomo-time">${left}</div>
+      <div class="pomo-dots" title="Focus sessions in this cycle (long break after ${every})">${'●'.repeat(inCycle)}${'○'.repeat(every - inCycle)} · ${P.s.round} today</div>
+    </div>
     <div class="row">
       <button class="btn primary" id="pomo-go">${P.s.running ? '❚❚ Pause' : '▶ Start'}</button>
-      <button class="btn" id="pomo-reset">↺ Reset</button>
-      <button class="btn" id="pomo-skip" title="Skip to the next phase">⏭ Skip</button>
+      <button class="btn" id="pomo-reset">${ICON.reset} Reset</button>
+      <button class="btn" id="pomo-skip" title="Skip to the next phase">${ICON.skip} Skip</button>
     </div>
-    <select class="input" id="pomo-task" title="Finished focus sessions are counted on this task">
-      <option value="">No task</option>
-      ${cur && !curHere ? `<option value="__other" selected>${esc(cur.id)} – ${esc(cur.title || '')} (other project)</option>` : ''}
-      ${tasks.map(t => `<option value="${t.id}" ${curHere && cur.id === t.id ? 'selected' : ''}>${t.id} – ${esc(t.title)}</option>`).join('')}
-    </select>
-    <div class="pomo-cfg">${[['focus', 'Focus'], ['short', 'Short'], ['long', 'Long'], ['every', 'Long every']].map(([k, l]) =>
-      `<label>${l}<input class="input" type="number" min="1" max="${k === 'every' ? 12 : 180}" data-cfg="${k}" value="${P.s.cfg[k]}"></label>`).join('')}</div>`;
+    <section class="pp-sec">
+      <h4>Working on</h4>
+      <select class="input" id="pomo-task" title="Finished focus sessions are counted on this task">
+        <option value="">No task</option>
+        ${cur && !curHere ? `<option value="__other" selected>${esc(cur.id)} – ${esc(cur.title || '')} (other project)</option>` : ''}
+        ${tasks.map(t => `<option value="${t.id}" ${curHere && cur.id === t.id ? 'selected' : ''}>${t.id} – ${esc(t.title)}</option>`).join('')}
+      </select>
+    </section>
+    <section class="pp-sec">
+      <h4>Durations</h4>
+      <div class="pomo-cfg">${[['focus', 'Focus', 'min'], ['short', 'Short break', 'min'], ['long', 'Long break', 'min'], ['every', 'Long break every', 'focus sessions']].map(([k, l, u]) =>
+        `<label><span>${l}</span><span class="pc-in"><input class="input" type="number" min="1" max="${k === 'every' ? 12 : 180}" data-cfg="${k}" value="${P.s.cfg[k]}"><small>${u}</small></span></label>`).join('')}</div>
+    </section>`;
   $('#pomo-modes').onclick = (e) => { const b = e.target.closest('button'); if (b) pomoMode(b.dataset.m); };
   $('#pomo-go').onclick = () => P.s.running ? pomoPause() : pomoStart();
   $('#pomo-reset').onclick = pomoReset;
@@ -1298,17 +1461,238 @@ function pomoPaint(full = false) {
   });
 }
 
+// Idle focus view: while the timer runs and nothing happens on the page for a while,
+// it grows from the header button into the centre; any activity sends it back.
+let pomoLastActive = Date.now(), pomoBigOn = false;
+let pomoDone = null; // snapshot of a phase that just finished while the idle view was showing
+
+// Plant: vines grow in from the screen edges while the focus phase runs; the closer the end,
+// the more of the border they cover. Generated per phase (seeded), drawn as SVG, revealed by progress.
+const plant = { key: null, stems: [], leaves: [] };
+function plantRng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function plantBuild(seed) {
+  const W = innerWidth, H = innerHeight, rnd = plantRng(seed), depth = Math.min(W, H) * 0.2;
+  const svg = $('#pomo-plant'), NS = 'http://www.w3.org/2000/svg';
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  // Layers: cracks in the screen below, the plant above (with a drop shadow for depth, see plantUpdate).
+  svg.innerHTML = `<defs><filter id="vine-depth" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="3" dy="5" stdDeviation="3" flood-color="#000" flood-opacity=".38"/></filter></defs>
+    <g id="plant-cracks"></g><g id="plant-g"></g>`;
+  const cracksG = svg.querySelector('#plant-cracks'), plantG = svg.querySelector('#plant-g');
+  plant.stems = []; plant.leaves = []; plant.cracks = [];
+  // Number of vines and how much they branch, from the settings menu. With "vary per phase" on,
+  // each phase picks its own values in a window around the setting (±spread), seeded per phase.
+  // Amount, branching and evenness each have a mode (settings menu): "fixed" uses the slider value,
+  // "vary" picks a value within ±spread around it, "random" picks anything in the slider's range.
+  // All picks are seeded per phase, so a phase keeps its look.
+  const SV = settings();
+  const pick = (mode, val, lo, hi, additive, spread) => {
+    const sp = spread / 100;
+    const r = rnd() * 2 - 1; // drawn always, so other modes do not reshuffle the pattern
+    const v = mode === 'random' ? lo + (r + 1) / 2 * (hi - lo) : mode === 'vary' ? (additive ? val + r * sp * (hi - lo) : val * (1 + r * sp)) : val;
+    return Math.min(hi, Math.max(lo, v));
+  };
+  const amount = pick(SV.pomoVinesMode, SV.pomoVines / 100, 0.2, 2, false, SV.pomoVinesSpread);
+  const branch = pick(SV.pomoBranchMode, SV.pomoBranch / 100, 0, 2, false, SV.pomoBranchSpread);
+  // Evenness: 0 = start points scattered anywhere along the edges, 1 = evenly spaced (little jitter).
+  const even = pick(SV.pomoEvenMode, SV.pomoEven / 100, 0, 1, true, SV.pomoEvenSpread);
+  plant.amount = amount; plant.branch = branch; plant.even = even;
+  // Greens relative to the theme's base lightness (--plant-l); one blossom colour per phase.
+  const green = (h, s, l) => `hsl(${h.toFixed(0)} ${Math.min(70, s).toFixed(0)}% calc(var(--plant-l) + ${l.toFixed(1)}%))`;
+  const BLOOMS = [['#f3b3c4', '#f2cf6b'], ['#f4a38c', '#f7e1a0'], ['#c9b6ee', '#f2d675'], ['#f6efe0', '#e8b64c'],
+    ['#f7c59f', '#c97b4a'], ['#e3a6d6', '#f5e08a'], ['#a9cdf0', '#f6efe0'], ['#f28f8f', '#f6d98b']];
+  const [bloom, bloomC] = BLOOMS[Math.floor(rnd() * BLOOMS.length)];
+  svg.style.setProperty('--bloom', bloom); svg.style.setProperty('--bloom-c', bloomC);
+  const bloomHsl = (() => { // hex → [h, s%, l%]
+    const [r, g, b] = [1, 3, 5].map(i => parseInt(bloom.slice(i, i + 2), 16) / 255);
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, d = max - min;
+    if (!d) return [0, 0, l * 100];
+    const s = d / (1 - Math.abs(2 * l - 1));
+    const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    return [(h * 60 + 360) % 360, s * 100, l * 100];
+  })();
+  const edges = [ // origin, tangent, inward normal, length
+    { o: [0, 0], t: [1, 0], n: [0, 1], len: W }, { o: [W, H], t: [-1, 0], n: [0, -1], len: W },
+    { o: [0, H], t: [0, -1], n: [1, 0], len: H }, { o: [W, 0], t: [0, 1], n: [-1, 0], len: H },
+  ];
+  const leafPath = 'M0 0C4-5 12-6 18 0C12 6 4 5 0 0Z';
+  // One stem: a random walk mostly along the edge, staying within maxDist from it.
+  function grow(e, along, dist, theta, L, maxDist, t0, t1, width, level, col) {
+    const pts = [], step = 6;
+    let len = 0;
+    while (len < L) {
+      pts.push([e.o[0] + along * e.t[0] + dist * e.n[0], e.o[1] + along * e.t[1] + dist * e.n[1]]);
+      theta += (rnd() - 0.5) * 0.45;
+      if (dist > maxDist) theta -= 0.18; if (dist < 6) theta += 0.18;
+      theta = Math.max(-1.2, Math.min(1.2, theta));
+      along += step * Math.cos(theta); dist += step * Math.sin(theta); len += step;
+      if (along < -20 || along > e.len + 20) break;
+    }
+    if (pts.length < 3) return;
+    const path = document.createElementNS(NS, 'path');
+    path.setAttribute('d', 'M' + pts.map(p => p.map(v => v.toFixed(1)).join(' ')).join('L'));
+    path.setAttribute('class', 'stem'); path.style.strokeWidth = width; path.style.stroke = green(col.h, col.s, col.l);
+    plantG.appendChild(path);
+    const total = (pts.length - 1) * step;
+    path.style.strokeDasharray = total; path.style.strokeDashoffset = total;
+    plant.stems.push({ el: path, total, t0, t1 });
+    const at = (i) => t0 + (t1 - t0) * (i * step / total); // progress at which point i is reached
+    for (let i = 4; i < pts.length - 1; i += 4 + Math.floor(rnd() * 3)) {
+      const [x, y] = pts[i], [x2, y2] = pts[i + 1];
+      const ang = Math.atan2(y2 - y, x2 - x) * 180 / Math.PI + (i % 2 ? 50 : -50) + (rnd() - 0.5) * 30;
+      const g = document.createElementNS(NS, 'g');
+      g.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${ang.toFixed(0)}) scale(${((0.6 + rnd() * 0.6) * (1.15 - level * 0.15)).toFixed(2)})`);
+      const leaf = document.createElementNS(NS, 'path');
+      leaf.setAttribute('d', leafPath); leaf.setAttribute('class', 'leaf');
+      leaf.style.fill = green(col.h - 6 + rnd() * 22, col.s + 10 + rnd() * 10, col.l + 10 + rnd() * 12);
+      g.appendChild(leaf); plantG.appendChild(g);
+      plant.leaves.push({ el: leaf, t: at(i) + 0.01 });
+      // Branches: each with its own growth time, branching again (up to 4 levels).
+      if (level < 4 && plant.stems.length < Math.min(900, 420 * Math.max(1, amount, branch)) && rnd() < [0, 0.34, 0.25, 0.15][level] * branch) {
+        const ti = at(i), dir = rnd() < 0.7 ? 1 : -1; // mostly towards the centre, sometimes back along the edge
+        const bl = (140 + rnd() * 160) / level;
+        grow(e, along0(e, x, y), dist0(e, x, y), dir * (0.5 + rnd() * 0.7), bl, depth * (1 + level * 0.25),
+          ti, Math.min(1, ti + 0.06 + rnd() * 0.3), Math.max(0.7, width * 0.7), level + 1,
+          { h: col.h + (rnd() - 0.5) * 12, s: col.s, l: col.l + (rnd() - 0.5) * 8 });
+      }
+    }
+    // A blossom at the tip; blossoms open only near the end of the phase (staggered, see plantUpdate).
+    if (level <= 2 && rnd() < 0.45) {
+      const [x, y] = pts[pts.length - 1];
+      const g = document.createElementNS(NS, 'g');
+      g.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)})`);
+      const b = document.createElementNS(NS, 'g'); b.setAttribute('class', 'bloom');
+      // Each blossom: a slight variation of the phase colour (hue ±6°, saturation ±8, lightness ±5).
+      const [bh, bs, bl] = bloomHsl, fill = `hsl(${(bh + (rnd() - 0.5) * 12).toFixed(0)} ${Math.max(0, Math.min(100, bs + (rnd() - 0.5) * 16)).toFixed(0)}% ${Math.max(0, Math.min(100, bl + (rnd() - 0.5) * 10)).toFixed(0)}%)`;
+      b.innerHTML = [0, 72, 144, 216, 288].map(a => `<circle r="4.5" style="fill:${fill}" cx="${(5 * Math.cos(a * Math.PI / 180)).toFixed(1)}" cy="${(5 * Math.sin(a * Math.PI / 180)).toFixed(1)}"/>`).join('') + '<circle class="c" r="3"/>';
+      g.appendChild(b); plantG.appendChild(g);
+      plant.leaves.push({ el: b, bloom: rnd() });
+    }
+  }
+  // A crack in the screen where a vine breaks through: a dark hole and jagged rays with a light bevel.
+  function crack(x, y, nx, ny, t) {
+    const g = document.createElementNS(NS, 'g'); g.setAttribute('class', 'crack');
+    const base = Math.atan2(ny, nx), rays = 3 + Math.floor(rnd() * 3);
+    let d = '';
+    for (let k = 0; k < rays; k++) {
+      let a = base + (rnd() - 0.5) * 2.6, px = x, py = y;
+      const len = 26 + rnd() * 50, segs = 4 + Math.floor(rnd() * 3);
+      d += `M${x.toFixed(1)} ${y.toFixed(1)}`;
+      for (let j = 0; j < segs; j++) {
+        a += (rnd() - 0.5) * 0.9; px += Math.cos(a) * len / segs; py += Math.sin(a) * len / segs;
+        d += `L${px.toFixed(1)} ${py.toFixed(1)}`;
+        if (j === 1 && rnd() < 0.6) { // small side fissure
+          const b = a + (rnd() < 0.5 ? -1 : 1) * (0.6 + rnd() * 0.5), bl = len * (0.2 + rnd() * 0.25);
+          d += `M${px.toFixed(1)} ${py.toFixed(1)}L${(px + Math.cos(b) * bl).toFixed(1)} ${(py + Math.sin(b) * bl).toFixed(1)}M${px.toFixed(1)} ${py.toFixed(1)}`;
+        }
+      }
+    }
+    const r = 4 + rnd() * 4, hole = Array.from({ length: 7 }, (_, k) => {
+      const a = k / 7 * Math.PI * 2, rr = r * (0.6 + rnd() * 0.6);
+      return `${(x + Math.cos(a) * rr).toFixed(1)} ${(y + Math.sin(a) * rr).toFixed(1)}`;
+    }).join('L');
+    g.innerHTML = `<path class="hl" pathLength="1" transform="translate(1.2 1.2)" d="${d}"/><path class="dk" pathLength="1" d="${d}"/><path class="hole" d="M${hole}Z"/>`;
+    cracksG.appendChild(g);
+    plant.cracks.push({ el: g, t });
+  }
+  const along0 = (e, x, y) => (x - e.o[0]) * e.t[0] + (y - e.o[1]) * e.t[1];
+  const dist0 = (e, x, y) => (x - e.o[0]) * e.n[0] + (y - e.o[1]) * e.n[1];
+  for (const e of edges) {
+    // New vines keep sprouting over the whole phase, each growing at its own pace.
+    const n = Math.max(1, Math.round(e.len / 160 * amount));
+    for (let k = 0; k < n; k++) {
+      // Varied origins: most from the very edge, some a little further in; own shade of green each.
+      // Each vine has a fixed slot along the edge; it may stray from it by up to half the edge
+      // (fully random, wrapped round) at 0 % and by a small jitter at 100 %. The stray shrinks
+      // geometrically in between, so every step of the slider looks about equally more regular.
+      const slot = e.len / n, minStray = slot * 0.15, stray = minStray * Math.pow((e.len / 2) / minStray, 1 - even);
+      const start = ((((k + 0.5) * slot + (rnd() * 2 - 1) * stray) % e.len) + e.len) % e.len, d0 = rnd() < 0.35 ? rnd() * depth * 0.5 * (1 - even * 0.6) : 0;
+      const t0 = Math.pow(rnd(), 1.3) * 0.85, t1 = Math.min(1, t0 + 0.12 + rnd() * 0.45);
+      const col = { h: 85 + rnd() * 55, s: 25 + rnd() * 25, l: -6 + rnd() * 12 };
+      crack(e.o[0] + start * e.t[0] + d0 * e.n[0], e.o[1] + start * e.t[1] + d0 * e.n[1], e.n[0], e.n[1], Math.max(0, t0 - 0.015));
+      grow(e, start, d0, (rnd() < 0.5 ? -1 : 1) * (0.2 + rnd() * 0.6), 120 + rnd() * Math.min(520, e.len * 0.5), depth, t0, t1, 1.8 + rnd() * 1, 1, col);
+    }
+  }
+}
+function plantUpdate() {
+  const svg = $('#pomo-plant');
+  const D = pomoDone;
+  if (!settings().pomoPlant || (D ? D.mode : P.s.mode) !== 'focus') { svg.toggleAttribute('hidden', true); return; }
+  if (!pomoBigOn) return; // keep it while the view fades out
+  svg.toggleAttribute('hidden', false);
+  const key = `${today()}|${D ? D.round : P.s.round}|${innerWidth}x${innerHeight}|${settings().pomoVines}|${settings().pomoBranch}|${settings().pomoEven}|${settings().pomoVinesMode}${settings().pomoBranchMode}${settings().pomoEvenMode}|${settings().pomoVinesSpread},${settings().pomoBranchSpread},${settings().pomoEvenSpread}`;
+  if (plant.key !== key) { plant.key = key; plantBuild([...key].reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619), 2166136261)); }
+  const S = settings();
+  svg.querySelector('#plant-g').toggleAttribute('filter', false);
+  if (S.pomoDepth) svg.querySelector('#plant-g').setAttribute('filter', 'url(#vine-depth)');
+  svg.querySelector('#plant-cracks').toggleAttribute('hidden', !S.pomoBreakout);
+  svg.classList.toggle('depth', S.pomoDepth);
+  const p = D ? 1 : 1 - pomoLeft() / pomoDur('focus');
+  for (const c of plant.cracks) c.el.classList.toggle('on', p >= c.t);
+  for (const s of plant.stems) {
+    const f = Math.max(0, Math.min(1, (p - s.t0) / (s.t1 - s.t0)));
+    s.el.style.strokeDashoffset = s.total * (1 - f);
+  }
+  // Blossoms open in the last 10 % of the phase; beyond 10 min that window grows more slowly
+  // (25 min → ~1:55 instead of 2:30, 50 min → ~3:05 instead of 5:00). All open just before the end.
+  const durS = pomoDur('focus') / 1000, leftS = pomoLeft() / 1000;
+  const win = durS <= 600 ? durS * 0.1 : 60 * Math.pow(durS / 600, 0.7), last = Math.min(2, win * 0.1);
+  for (const l of plant.leaves)
+    l.el.classList.toggle('on', l.bloom === undefined ? p >= l.t : !!(D || leftS <= last + l.bloom * (win - last)));
+}
+
+// Transform that makes the centred big timer sit exactly on the header button.
+function pomoBtnTransform() {
+  const b = $('#pomo-btn').getBoundingClientRect(), big = $('#pomo-big');
+  const w = big.offsetWidth, h = big.offsetHeight;
+  const dx = b.left + b.width / 2 - innerWidth / 2, dy = b.top + b.height / 2 - innerHeight / 2;
+  return `translate(${dx}px, ${dy}px) translate(-50%, -50%) scale(${Math.min(b.width / w, b.height / h)})`;
+}
+function pomoBig(on) {
+  if (on === pomoBigOn) return;
+  pomoBigOn = on;
+  const big = $('#pomo-big'), veil = $('#pomo-veil');
+  if (on) {
+    big.hidden = false; pomoPaint();
+    big.style.transition = 'none'; big.style.opacity = '0'; big.style.transform = pomoBtnTransform();
+    big.offsetWidth; // commit start position before animating
+    big.style.transition = ''; big.style.opacity = '1'; big.style.transform = 'translate(-50%, -50%)';
+    veil.classList.add('on'); plantUpdate();
+  } else {
+    big.style.transform = pomoBtnTransform(); big.style.opacity = '0';
+    veil.classList.remove('on');
+    const done = () => { if (!pomoBigOn) big.hidden = true; };
+    big.addEventListener('transitionend', done, { once: true });
+    setTimeout(done, 700);
+  }
+}
+function pomoActivity() { pomoLastActive = Date.now(); pomoBig(false); if (pomoDone && !pomoDone.leaving) { pomoDone.leaving = true; setTimeout(() => { if (!pomoBigOn) pomoDone = null; }, 700); } }
+
 function pomoInit() {
   pomoLoad();
+  pomoHoverInit();
+  ['mousemove', 'mousedown', 'keydown', 'wheel', 'touchstart'].forEach(ev =>
+    document.addEventListener(ev, pomoActivity, { passive: true, capture: true }));
   // Reset the daily counter when a new day starts.
   if (ls.get('pomoDay', null) !== today()) { P.s.round = 0; pomoSave(); ls.set('pomoDay', today()); }
   $('#pomo-btn').onclick = (e) => { e.stopPropagation(); pomoOpen(); };
   document.addEventListener('click', (e) => {
-    if (!$('#pomo-pop').hidden && !e.target.closest('#pomo-pop, #pomo-btn, #t-pomo')) pomoOpen(false);
+    if (!$('#pomo-pop').hidden && !clickedIn(e, '#pomo-pop, #pomo-btn, #t-pomo')) pomoOpen(false);
   });
-  window.addEventListener('storage', (e) => { if (e.key === 'keepr.pomo') { pomoLoad(); pomoPaint(true); if (state.task) renderDrawer(); } });
+  window.addEventListener('storage', (e) => {
+    if (e.key !== 'keepr.pomo') return;
+    const prev = { mode: P.s.mode, running: P.s.running, endAt: P.s.endAt, task: P.s.task, round: P.s.round };
+    pomoLoad();
+    // Another tab finished the phase: freeze the idle view here too.
+    if (pomoBigOn && prev.running && !P.s.running && P.s.mode !== prev.mode && Date.now() >= prev.endAt - 2000)
+      pomoDone = { mode: prev.mode, task: prev.task, round: prev.round };
+    pomoPaint(true); if (state.task) renderDrawer();
+  });
   setInterval(() => {
     if (P.s.running && Date.now() >= P.s.endAt) pomoComplete();
+    const S = settings();
+    if (P.s.running) pomoDone = null; // next phase started
+    pomoBig(S.pomoBig && ((pomoDone && !pomoDone.leaving) || (P.s.running && Date.now() - pomoLastActive >= S.pomoIdleSec * 1000)));
     pomoPaint();
   }, 1000);
   pomoPaint(true);
@@ -1323,15 +1707,173 @@ function goTo(ref) {
   else { state.tab = 'inbox'; if (state.iFilter !== 'all' && state.data.inbox.find(i => i.id === id)?.status !== state.iFilter) state.iFilter = 'all'; selectInbox(id); }
 }
 
+// ------------------------------------------------------------ settings
+// Per-browser dashboard preferences (localStorage); opened by clicking "keepr".
+const SETTINGS_DEFAULT = { pomoBig: true, pomoIdleSec: 15, pomoPlant: true, pomoBlur: false, pomoBlurLevel: 3, pomoVines: 100, pomoBranch: 100, pomoDepth: true, pomoBreakout: false, pomoVinesSpread: 30, pomoBranchSpread: 30, pomoEvenSpread: 30, pomoEven: 0, pomoVinesMode: 'fixed', pomoBranchMode: 'fixed', pomoEvenMode: 'fixed', density: 2 };
+const settings = () => {
+  const S = { ...SETTINGS_DEFAULT, ...ls.get('settings', {}) };
+  const stored = ls.get('settings', {});
+  if (stored.pomoVarySpread) for (const k of ['pomoVinesSpread', 'pomoBranchSpread', 'pomoEvenSpread']) if (stored[k] === undefined) S[k] = stored.pomoVarySpread;
+  if (S.pomoVary) for (const k of ['pomoVinesMode', 'pomoBranchMode', 'pomoEvenMode']) if (!ls.get('settings', {})[k]) S[k] = 'vary'; // older "vary per phase" switch
+  return S;
+};
+// Only values the user actually changed are stored, so later changes to a default still reach them.
+function setSetting(k, v) { ls.set('settings', { ...ls.get('settings', {}), [k]: v }); settingsApply(); }
+// Blur strength as named levels. The eye judges blur roughly logarithmically, so the radius
+// grows geometrically (each step ~1.6×) to make every step feel about equally big. Radii are
+// for a ~800 px tall window and scale with the window, so a level looks alike on every screen.
+const BLUR_LEVELS = ['very light', 'light', 'medium', 'strong', 'very strong'];
+const blurPx = (level) => 2 * Math.pow(1.6, level - 1) * Math.min(innerWidth, innerHeight) / 800;
+// Settings that map straight onto the page (blur of the idle view).
+const DENSITY = [['compact', 1], ['comfortable', 1.25], ['roomy', 1.5], ['spacious', 1.8]];
+function settingsApply() {
+  const S = settings(), veil = $('#pomo-veil');
+  document.documentElement.style.setProperty('--sp', DENSITY[S.density - 1][1]);
+  veil.classList.toggle('blur', S.pomoBlur);
+  veil.style.setProperty('--veil-blur', `${blurPx(S.pomoBlurLevel).toFixed(1)}px`);
+}
+
+function settingsOpen(open = $('#settings-pop').hidden) {
+  const pop = $('#settings-pop');
+  if (open && !$('#pomo-pop').hidden) pomoOpen(false);
+  pop.hidden = !open; $('#brand').setAttribute('aria-expanded', String(open));
+  if (open) settingsPaint();
+  popSync();
+}
+// Dim the page behind an open popover and anchor the popover (with a small pointer) to its trigger.
+function popSync() {
+  const pairs = [[$('#settings-pop'), $('#brand'), 'left'], [$('#pomo-pop'), $('#pomo-btn'), 'right']];
+  const open = pairs.find(([pop]) => !pop.hidden);
+  $('#pop-scrim').classList.toggle('on', !!open);
+  const caret = $('#pop-caret');
+  caret.hidden = !open;
+  if (!open) return;
+  const [pop, btn, side] = open, r = btn.getBoundingClientRect(), top = r.bottom + 10;
+  pop.style.top = `${top}px`;
+  pop.style.maxHeight = `calc(100vh - ${top + 16}px)`;
+  if (side === 'left') { pop.style.left = `${Math.max(16, r.left - 10)}px`; pop.style.right = 'auto'; }
+  else { pop.style.right = `${Math.max(16, innerWidth - r.right - 10)}px`; pop.style.left = 'auto'; }
+  caret.style.left = `${r.left + r.width / 2 - 6}px`;
+  caret.style.top = `${top - 6}px`;
+}
+function settingsPaint() {
+  const S = settings(), pop = $('#settings-pop');
+  const grp = (on) => `set-grp ${on ? '' : 'off'}`;
+  const evenLabel = (v) => v === 0 ? 'scattered' : v === 100 ? 'even' : `${v} %`;
+  // A vines slider with its mode switch (fixed / vary / random) underneath.
+  const vineRow = (id, label, min, max, step, val, mode, fmt, spread) => `
+          <div class="set-vrow">
+            <label class="set-row ${mode === 'random' ? 'dim' : ''}"><span>${label}</span><input type="range" min="${min}" max="${max}" step="${step}" id="set-pomo-${id}" value="${val}"><span class="val" id="set-pomo-${id}-val">${mode === 'random' ? 'random' : fmt(val)}</span></label>
+            <div class="seg set-mode" data-mode-for="${id}">${['fixed', 'vary', 'random'].map(m => `<button data-mode="${m}" class="${mode === m ? 'on' : ''}">${m[0].toUpperCase() + m.slice(1)}</button>`).join('')}</div>
+            ${mode === 'vary' ? `<label class="set-row set-spread"><span>± range</span><input type="range" min="10" max="80" step="5" id="set-pomo-${id}-spread" value="${spread}"><span class="val" id="set-pomo-${id}-spread-val">± ${spread} %</span></label>` : ''}
+          </div>`;
+  // Two panes: categories on the left, the chosen category's options on the right.
+  const CATS = {
+    appearance: { label: 'Appearance', desc: 'Colour scheme and how dense the dashboard looks.', html: `
+      <div class="set-grp">
+        <div class="set-row"><span>Theme</span><div class="seg set-seg" id="set-theme">${[['light', 'Light'], ['dark', 'Dark'], ['system', 'System']].map(([k, l]) =>
+          `<button data-theme="${k}" class="${(ls.get('theme', null) || 'system') === k ? 'on' : ''}">${l}</button>`).join('')}</div><span></span></div>
+      </div>
+      <div class="set-grp">
+        <label class="set-row"><span>Spacing</span><input type="range" min="1" max="${DENSITY.length}" step="1" id="set-density" value="${S.density}"><span class="val" id="set-density-val">${DENSITY[S.density - 1][0]}</span></label>
+      </div>` },
+    pomodoro: { label: 'Pomodoro timer', desc: 'The view the running timer switches to when you leave the page alone, and the vines around it.', html: `
+      <h3 class="set-sub">Idle timer<small>What the running timer shows when you leave the page alone.</small></h3>
+      <div class="set-grp">
+        <label class="opt"><input type="checkbox" id="set-pomo-big" ${S.pomoBig ? 'checked' : ''}>
+          <span>Big timer when idle<small>While the pomodoro runs and the page is idle, show the timer large in the centre.</small></span></label>
+        <div class="set-body ${S.pomoBig ? '' : 'off'}">
+          <label class="set-row"><span>Show after</span><span class="set-num"><input class="input" type="number" min="3" max="600" id="set-pomo-idle" value="${S.pomoIdleSec}"><small>seconds without activity</small></span></label>
+        </div>
+      </div>
+      <div class="${grp(S.pomoBig)}">
+        <label class="opt"><input type="checkbox" id="set-pomo-blur" ${S.pomoBlur ? 'checked' : ''}>
+          <span>Blur the page behind<small>Softly blurs the dashboard behind the big timer.</small></span></label>
+        <div class="set-body ${S.pomoBlur ? '' : 'off'}">
+          <label class="set-row"><span>Strength</span><input type="range" min="1" max="${BLUR_LEVELS.length}" step="1" id="set-pomo-blur-lvl" value="${S.pomoBlurLevel}"><span class="val" id="set-pomo-blur-val">${BLUR_LEVELS[S.pomoBlurLevel - 1]}</span></label>
+        </div>
+      </div>
+      <h3 class="set-sub">Vines<small>The plant that grows around the big timer during a focus phase.</small></h3>
+      <div class="${grp(S.pomoBig)}">
+        <label class="opt"><input type="checkbox" id="set-pomo-plant" ${S.pomoPlant ? 'checked' : ''}>
+          <span>Growing vines<small>Vines grow in from the screen edges as the focus phase runs out.</small></span></label>
+        <div class="set-body ${S.pomoPlant ? '' : 'off'}">
+          ${vineRow('vines', 'Amount', 20, 200, 10, S.pomoVines, S.pomoVinesMode, (v) => `${v} %`, S.pomoVinesSpread)}
+          ${vineRow('branch', 'Branching', 0, 200, 10, S.pomoBranch, S.pomoBranchMode, (v) => `${v} %`, S.pomoBranchSpread)}
+          ${vineRow('even', 'Evenness', 0, 100, 10, S.pomoEven, S.pomoEvenMode, evenLabel, S.pomoEvenSpread)}
+          <p class="set-note">Fixed: exactly the value. Vary: each focus phase picks a value within the ± range around it. Random: each phase picks any value.</p>
+          <label class="opt"><input type="checkbox" id="set-pomo-depth" ${S.pomoDepth ? 'checked' : ''}><span>Depth<small>Vines cast a soft shadow, leaves pop out a little.</small></span></label>
+          <label class="opt"><input type="checkbox" id="set-pomo-cracks" ${S.pomoBreakout ? 'checked' : ''}><span>Cracks<small>Vines break out of the screen through small cracks.</small></span></label>
+        </div>
+        ${S.pomoBig ? '' : '<p class="set-note">Turn on “Big timer when idle” above to see the vines.</p>'}
+      </div>` },
+  };
+  let cat = ls.get('settingsCat', 'appearance');
+  if (cat === 'idle' || cat === 'vines') cat = 'pomodoro'; // older category names
+  if (!CATS[cat]) cat = 'appearance';
+  // Re-rendering replaces the content; keep the scroll position when the category stays the same.
+  const prevMain = pop.querySelector('.set-main'), keepScroll = prevMain && pop.dataset.cat === cat ? prevMain.scrollTop : 0;
+  pop.dataset.cat = cat;
+  pop.innerHTML = `
+    <nav class="set-nav">
+      <h3>Settings</h3>
+      ${Object.entries(CATS).map(([k, c]) => `<button data-cat="${k}" class="${k === cat ? 'on' : ''}">${c.label}</button>`).join('')}
+    </nav>
+    <div class="set-main">
+      <div class="set-head"><h2>${CATS[cat].label}</h2><p>${CATS[cat].desc}</p></div>
+      ${CATS[cat].html}
+    </div>`;
+  pop.querySelector('.set-main').scrollTop = keepScroll;
+  pop.querySelector('.set-nav').onclick = (e) => { const b = e.target.closest('[data-cat]'); if (b) { ls.set('settingsCat', b.dataset.cat); settingsPaint(); } };
+  const on = (id, ev, fn) => { const el = $(id); if (el) el[ev] = fn; };
+  on('#set-theme', 'onclick', (e) => { const b = e.target.closest('[data-theme]'); if (b) { setTheme(b.dataset.theme); settingsPaint(); } });
+  on('#set-density', 'oninput', (e) => { setSetting('density', Number(e.target.value)); $('#set-density-val').textContent = DENSITY[e.target.value - 1][0]; });
+  on('#set-pomo-big', 'onchange', (e) => { setSetting('pomoBig', e.target.checked); if (!e.target.checked) pomoBig(false); settingsPaint(); });
+  on('#set-pomo-plant', 'onchange', (e) => { setSetting('pomoPlant', e.target.checked); plantUpdate(); settingsPaint(); });
+  const MODE_KEY = { vines: 'pomoVinesMode', branch: 'pomoBranchMode', even: 'pomoEvenMode' };
+  const VAL_KEY = { vines: ['pomoVines', (v) => `${v} %`], branch: ['pomoBranch', (v) => `${v} %`], even: ['pomoEven', evenLabel] };
+  for (const [id, [key, fmt]] of Object.entries(VAL_KEY))
+    on(`#set-pomo-${id}`, 'oninput', (e) => { const v = Number(e.target.value); setSetting(key, v); if (settings()[MODE_KEY[id]] !== 'random') $(`#set-pomo-${id}-val`).textContent = fmt(v); plantUpdate(); });
+  const SPREAD_KEY = { vines: 'pomoVinesSpread', branch: 'pomoBranchSpread', even: 'pomoEvenSpread' };
+  for (const [id, key] of Object.entries(SPREAD_KEY))
+    on(`#set-pomo-${id}-spread`, 'oninput', (e) => { setSetting(key, Number(e.target.value)); $(`#set-pomo-${id}-spread-val`).textContent = `± ${e.target.value} %`; plantUpdate(); });
+  pop.querySelectorAll('[data-mode-for]').forEach(seg => seg.onclick = (e) => {
+    const b = e.target.closest('[data-mode]'); if (!b) return;
+    setSetting(MODE_KEY[seg.dataset.modeFor], b.dataset.mode); plantUpdate(); settingsPaint();
+  });
+  on('#set-pomo-depth', 'onchange', (e) => { setSetting('pomoDepth', e.target.checked); plantUpdate(); });
+  on('#set-pomo-cracks', 'onchange', (e) => { setSetting('pomoBreakout', e.target.checked); plantUpdate(); });
+  on('#set-pomo-blur', 'onchange', (e) => { setSetting('pomoBlur', e.target.checked); settingsPaint(); });
+  on('#set-pomo-blur-lvl', 'oninput', (e) => { setSetting('pomoBlurLevel', Number(e.target.value)); $('#set-pomo-blur-val').textContent = BLUR_LEVELS[e.target.value - 1]; });
+  on('#set-pomo-idle', 'onchange', (e) => { setSetting('pomoIdleSec', Math.min(600, Math.max(3, Math.round(Number(e.target.value) || 15)))); settingsPaint(); });
+}
+function settingsInit() {
+  settingsApply();
+  addEventListener('resize', popSync);
+  addEventListener('resize', settingsApply);
+  $('#brand').onclick = (e) => { e.stopPropagation(); settingsOpen(); };
+  document.addEventListener('click', (e) => {
+    if (!$('#settings-pop').hidden && !clickedIn(e, '#settings-pop, #brand')) settingsOpen(false);
+  });
+  window.addEventListener('storage', (e) => { if (e.key !== 'keepr.settings') return; settingsApply(); if (!$('#settings-pop').hidden) settingsPaint(); });
+}
+
+// Theme: 'light', 'dark' or 'system' (follow the OS). Used by the header button and the settings.
+function setTheme(t) {
+  if (t === 'system') { delete document.documentElement.dataset.theme; try { localStorage.removeItem('keepr.theme'); } catch {} }
+  else { document.documentElement.dataset.theme = t; ls.set('theme', t); }
+  if (!$('#settings-pop').hidden) settingsPaint();
+}
+
 // ------------------------------------------------------------ init
 async function init() {
+  settingsInit();
   const theme = ls.get('theme', null);
   if (theme) document.documentElement.dataset.theme = theme;
   $('#theme').onclick = () => {
     const dark = matchMedia('(prefers-color-scheme: dark)').matches;
     const cur = document.documentElement.dataset.theme || (dark ? 'dark' : 'light');
-    const next = cur === 'dark' ? 'light' : 'dark';
-    document.documentElement.dataset.theme = next; ls.set('theme', next);
+    setTheme(cur === 'dark' ? 'light' : 'dark');
   };
 
   state.projects = await api('/api/projects');
@@ -1363,7 +1905,7 @@ async function init() {
   });
   pomoInit();
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { if (!$('#pomo-pop').hidden) pomoOpen(false); else closeTask(); }
+    if (e.key === 'Escape') { if (!$('#settings-pop').hidden) settingsOpen(false); else if (!$('#pomo-pop').hidden) pomoOpen(false); else closeTask(); }
     if (e.key === '/' && !e.target.matches('input, textarea, select')) { e.preventDefault(); $('#search').focus(); }
   });
 
