@@ -9,7 +9,7 @@ A local dashboard for working with AI agents (Claude Code, Claude Desktop). No d
 - **Inbox**: a place for things that still need clarifying before they become a task (open questions, unclear ideas). Collect notes on them, and once they're clear, turn them into a task with one click.
 - **Kanban-style tasks**: board and list views, status, priority, due date, tags, comments and a link to the answer or inbox item a task came from. Subtasks have their own status and description. Tasks can be linked to each other (related, blocks, blocked by). The AI manages everything via the CLI or MCP, and the dashboard updates live.
 - **Origin**: answers, tasks and inbox items can record which question or observation led to them, so you still understand later why an idea came up. Tasks inherit it from the answer or inbox item they come from, and the AI is asked to fill it in (or to ask you if the reasoning is unclear).
-- **Pomodoro timer**: a focus timer in the dashboard that counts finished focus sessions on the task you're working on.
+- **Pomodoro timer**: a focus timer in the dashboard that counts finished focus sessions on the task you're working on. When you leave the page alone, it shows a calm full-screen focus view with vines that grow in as the phase runs out.
 
 ## How it works
 
@@ -50,6 +50,7 @@ keepr is installed **once** per machine and used from **any number of projects**
 - [Using it in Claude Code](#using-it-in-claude-code)
 - [Dashboard](#dashboard)
   - [Pomodoro timer](#pomodoro-timer)
+  - [Settings](#settings)
 - [Multiple projects](#multiple-projects)
 - [CLI](#cli)
 - [Claude Desktop (MCP server)](#claude-desktop-mcp-server)
@@ -199,7 +200,7 @@ German phrases like "merk dir das", "muss noch geklärt werden" or "leg eine Auf
 keepr dash        # starts the server if needed and opens the browser
 ```
 
-The address is `http://127.0.0.1:4747` (change the port with `KEEPR_PORT`). Every project where `keepr` has been used shows up in the project dropdown. Shortcuts: `/` focuses the search, `Esc` closes the detail panel.
+The address is `http://127.0.0.1:4747` (change the port with `KEEPR_PORT`). Every project where `keepr` has been used shows up in the project dropdown. Shortcuts: `/` focuses the search, `Esc` closes the detail panel or an open popover. Click **keepr** in the header to open the [settings](#settings).
 
 The dashboard has four tabs:
 
@@ -217,7 +218,22 @@ The dashboard has four tabs:
 
 <sub>[↑ Back to top](#top)</sub>
 
-The 🍅 button in the header opens the timer: 25 minutes of focus, 5 minutes short break, and a 15 minute long break after every 4 focus sessions. All four values can be changed in the timer. "🍅 Focus" in a task panel starts a focus session on that task, or you can pick the task in the timer. Each finished focus session is counted on the task (🍅 on the card, and `keepr task show` lists them with the minutes). When a phase ends, the dashboard beeps, shows a message and sends a desktop notification if you allowed it. The next phase doesn't start on its own. The timer keeps running if you reload the page, and several dashboard tabs share it. It only runs while a dashboard tab is open.
+The 🍅 button in the header opens the timer window: phase switch, the time, Start / Reset / Skip, the task you're working on and the durations. It closes when the pointer leaves it or on a click outside. Defaults are 25 minutes of focus, 5 minutes short break, and a 15 minute long break after every 4 focus sessions. All four values can be changed in the timer. "🍅 Focus" in a task panel starts a focus session on that task, or you can pick the task in the timer. Each finished focus session is counted on the task (🍅 on the card, and `keepr task show` lists them with the minutes). When a phase ends, the dashboard beeps, shows a message and sends a desktop notification if you allowed it. The next phase doesn't start on its own. The timer keeps running if you reload the page, and several dashboard tabs share it. It only runs while a dashboard tab is open.
+
+**Idle focus view.** While the timer runs and the page has been idle for a while (15 seconds by default), the timer grows from its button into a card in the middle of the screen: phase, time, progress and task. Any mouse move, key or scroll sends it back. When a phase ends while the view is up, it stays as a still image until you come back.
+
+**Growing vines.** During a focus phase, vines grow in from the screen edges around the card. New vines keep sprouting and branching as time passes, so the edges fill up towards the end. Each vine has its own shade of green, and every phase gets a new pattern and a new blossom colour. The blossoms only open near the end (the last 10 % of the phase, a little less for long phases). Optionally the vines cast a shadow (on by default) or break out of the screen through small cracks (off by default).
+
+### Settings
+
+<sub>[↑ Back to top](#top)</sub>
+
+Click **keepr** in the header. Categories are on the left, their options on the right. Settings are stored per browser.
+
+- **Appearance**: theme (*Light*, *Dark* or *System*) and spacing (*compact* to *spacious*), which scales the padding of lists, cards and windows.
+- **Pomodoro timer**
+  - **Idle timer**: turn the idle focus view on or off, set the idle time, and optionally blur the page behind it (five strength levels).
+  - **Vines**: turn the vines on or off, set *Amount*, *Branching* and *Evenness* (scattered to evenly spaced), and toggle *Depth* and *Cracks*. Each of the three sliders has a mode: *Fixed* uses the value as set, *Vary* picks a value within a ± range around it for every focus phase, *Random* picks any value per phase.
 
 ## Multiple projects
 
