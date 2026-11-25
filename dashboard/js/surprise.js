@@ -148,8 +148,12 @@ function pomoInit() {
     if (e.key !== 'keepr.pomo') return;
     const prev = { mode: P.s.mode, running: P.s.running, endAt: P.s.endAt, task: P.s.task, round: P.s.round };
     pomoLoad();
+    const finishedElsewhere = prev.running && !P.s.running && P.s.mode !== prev.mode && Date.now() >= prev.endAt - 2000;
+    // Another tab finished the phase but stopped the timer although auto mode is on (e.g. a tab still
+    // running older code): start the next phase here.
+    if (finishedElsewhere && P.s.cfg.auto) { P.s.running = true; P.s.endAt = Date.now() + pomoDur(P.s.mode); P.s.left = null; pomoSave(); }
     // Another tab finished the phase: freeze the idle view here too.
-    if (pomoBigOn && prev.running && !P.s.running && P.s.mode !== prev.mode && Date.now() >= prev.endAt - 2000)
+    else if (pomoBigOn && finishedElsewhere)
       pomoDone = { mode: prev.mode, task: prev.task, round: prev.round };
     pomoPaint(true); if (state.task) renderDrawer();
   });
