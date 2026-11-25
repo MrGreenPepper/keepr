@@ -4,7 +4,7 @@
 // State lives in localStorage so it survives reloads and is shared between dashboard tabs.
 const P = { s: null, ctx: null };
 function pomoLoad() {
-  const cfg = { focus: 25, short: 5, long: 15, every: 4 };
+  const cfg = { focus: 25, short: 5, long: 15, every: 4, auto: false };
   const s = ls.get('pomo', {});
   P.s = { mode: 'focus', running: false, endAt: null, left: null, round: 0, task: null, ...s, cfg: { ...cfg, ...(s.cfg || {}) } };
 }
@@ -41,30 +41,59 @@ function pomoMode(mode) { P.s.mode = mode; pomoReset(); }
 function pomoComplete(skipped = false) {
   const fresh = ls.get('pomo', {});
   if (!skipped && (!fresh.running || fresh.endAt !== P.s.endAt)) { pomoLoad(); return; } // another tab handled it
-  const finished = P.s.mode;
-  // Phase ran out while the idle view is up: freeze it as a still image until the user is back.
-  pomoDone = !skipped && pomoBigOn ? { mode: finished, task: P.s.task, round: P.s.round } : null;
+  const finished = P.s.mode, wasRunning = P.s.running;
+  // Auto mode: the next phase starts right away (after Skip only if the timer was running).
+  const auto = P.s.cfg.auto && wasRunning;
+  // Phase ran out while the idle view is up: freeze it as a still image until the user is back
+  // (not in auto mode, there the view simply carries on with the next phase).
+  pomoDone = !skipped && !auto && pomoBigOn ? { mode: finished, task: P.s.task, round: P.s.round } : null;
   if (finished === 'focus' && !skipped) {
     P.s.round++;
     if (P.s.task) opIn(P.s.task.project, 'task.pomodoro', { id: P.s.task.id, minutes: P.s.cfg.focus }).catch(() => {});
   }
   P.s.mode = finished === 'focus' ? (P.s.round && P.s.round % P.s.cfg.every === 0 ? 'long' : 'short') : 'focus';
-  P.s.running = false; P.s.endAt = null; P.s.left = null;
+  P.s.running = auto; P.s.endAt = auto ? Date.now() + pomoDur(P.s.mode) : null; P.s.left = null;
   pomoSave(); pomoPaint(true);
-  if (!skipped) pomoNotify(finished === 'focus' ? `Focus done${P.s.task ? ` (${P.s.task.id})` : ''} – time for a ${P.s.mode === 'long' ? 'long ' : ''}break` : 'Break over – back to focus');
+  const brk = `${P.s.mode === 'long' ? 'long ' : ''}break`;
+  if (!skipped) pomoNotify(finished === 'focus'
+    ? `Focus done${P.s.task ? ` (${P.s.task.id})` : ''} – ${auto ? `${brk} started` : `time for a ${brk}`}`
+    : auto ? 'Break over – focus started' : 'Break over – back to focus', finished === 'focus' ? 'focus' : 'break');
 }
 
-function pomoNotify(msg) {
+function pomoNotify(msg, sound) {
   toast(msg);
-  try {
-    const ctx = P.ctx; if (!ctx) throw 0;
-    [0, 0.25, 0.5].forEach(d => {
-      const o = ctx.createOscillator(), g = ctx.createGain();
-      o.frequency.value = 880; g.gain.setValueAtTime(0.15, ctx.currentTime + d); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + d + 0.2);
-      o.connect(g).connect(ctx.destination); o.start(ctx.currentTime + d); o.stop(ctx.currentTime + d + 0.2);
-    });
-  } catch {}
+  pomoSound(sound);
   try { if (Notification.permission === 'granted') new Notification('keepr 🍅', { body: msg }); } catch {}
+}
+
+// End-of-phase sounds, synthesised with Web Audio (no audio files). Each preset is a list of notes
+// [start s, frequency Hz, length s, wave, level] plus the length of one pass, so it can be repeated.
+const POMO_SOUNDS = {
+  beep: { label: 'Beep', len: 0.75, notes: [[0, 880, 0.2], [0.25, 880, 0.2], [0.5, 880, 0.2]] },
+  chime: { label: 'Chime', len: 1.3, notes: [[0, 1047, 1.1], [0.14, 1319, 1.0], [0.28, 1568, 1.0]] },
+  bell: { label: 'Bell', len: 2.2, notes: [[0, 660, 2.2, 'sine', 1], [0, 1822, 1.4, 'sine', 0.35], [0, 3564, 0.8, 'sine', 0.15]] },
+  soft: { label: 'Soft', len: 1.4, notes: [[0, 523, 0.7, 'triangle'], [0.45, 392, 0.9, 'triangle']], attack: 0.06 },
+  digital: { label: 'Digital', len: 0.9, notes: [[0, 1000, 0.09, 'square', 0.4], [0.15, 1000, 0.09, 'square', 0.4], [0.3, 1000, 0.09, 'square', 0.4], [0.45, 1000, 0.09, 'square', 0.4]] },
+};
+// which: 'focus' (a focus phase ended) or 'break'; or a preset name to preview one.
+function pomoSound(which, opts = {}) {
+  const S = settings();
+  const name = POMO_SOUNDS[which] ? which : which === 'break' ? S.pomoSoundBreak : S.pomoSoundFocus;
+  const snd = POMO_SOUNDS[name]; if (!snd) return; // 'off'
+  const vol = (opts.volume ?? S.pomoVolume) / 100, times = opts.repeat ?? S.pomoRepeat;
+  if (vol <= 0) return;
+  try {
+    const ctx = P.ctx ??= new AudioContext();
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    const t0 = ctx.currentTime + 0.05, a = snd.attack ?? 0.005;
+    for (let r = 0; r < times; r++) for (const [d, f, l, wave = 'sine', lvl = 1] of snd.notes) {
+      const o = ctx.createOscillator(), g = ctx.createGain(), t = t0 + r * (snd.len + 0.35) + d;
+      o.type = wave; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.3 * vol * vol * lvl, t + a);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + l);
+      o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + l + 0.05);
+    }
+  } catch {}
 }
 
 // Was the click inside one of these elements? Uses the path at click time, because a click often
@@ -124,7 +153,7 @@ function pomoPaint(full = false) {
     <div class="seg" id="pomo-modes">${Object.entries(POMO_MODES).map(([k, l]) => `<button data-m="${k}" class="${P.s.mode === k ? 'on' : ''}">${l}</button>`).join('')}</div>
     <div class="pp-clock">
       <div class="pomo-time" id="pomo-time">${left}</div>
-      <div class="pomo-dots" title="Focus sessions in this cycle (long break after ${every})">${'●'.repeat(inCycle)}${'○'.repeat(every - inCycle)} · ${P.s.round} today</div>
+      <div class="pomo-dots" title="Focus sessions in this cycle (long break after ${every})">${'●'.repeat(inCycle)}${'○'.repeat(every - inCycle)} · ${P.s.round} today${P.s.cfg.auto ? ' · auto' : ''}</div>
     </div>
     <div class="row">
       <button class="btn primary" id="pomo-go">${P.s.running ? '❚❚ Pause' : '▶ Start'}</button>
@@ -139,6 +168,10 @@ function pomoPaint(full = false) {
         ${tasks.map(t => `<option value="${t.id}" ${curHere && cur.id === t.id ? 'selected' : ''}>${t.id} – ${esc(t.title)}</option>`).join('')}
       </select>
     </section>
+    <label class="pomo-auto" title="Off: the timer stops after each phase and waits for Start">
+      <input type="checkbox" id="pomo-auto" ${P.s.cfg.auto ? 'checked' : ''}>
+      <span>Auto mode<small>Switch to the next phase on its own and keep running: focus → break → focus …</small></span>
+    </label>
     <section class="pp-sec">
       <h4>Durations</h4>
       <div class="pomo-cfg">${[['focus', 'Focus', 'min'], ['short', 'Short break', 'min'], ['long', 'Long break', 'min'], ['every', 'Long break every', 'focus sessions']].map(([k, l, u]) =>
@@ -148,6 +181,7 @@ function pomoPaint(full = false) {
   $('#pomo-go').onclick = () => P.s.running ? pomoPause() : pomoStart();
   $('#pomo-reset').onclick = pomoReset;
   $('#pomo-skip').onclick = () => pomoComplete(true);
+  $('#pomo-auto').onchange = (e) => { P.s.cfg.auto = e.target.checked; pomoSave(); e.target.blur(); pomoPaint(true); };
   $('#pomo-task').onchange = (e) => {
     const v = e.target.value; if (v === '__other') return;
     const t = tasks.find(x => x.id === v);

@@ -2,7 +2,7 @@
 
 // ------------------------------------------------------------ settings
 // Per-browser dashboard preferences (localStorage); opened by clicking "keepr".
-const SETTINGS_DEFAULT = { pomoBig: true, pomoIdleSec: 15, pomoPlant: true, pomoBlur: false, pomoBlurLevel: 3, pomoVines: 100, pomoBranch: 100, pomoDepth: true, pomoBreakout: false, pomoVinesSpread: 30, pomoBranchSpread: 30, pomoEvenSpread: 30, pomoEven: 0, pomoVinesMode: 'fixed', pomoBranchMode: 'fixed', pomoEvenMode: 'fixed', density: 2, timerFont: 'script', idleSeconds: 'ring', pomoSurprise: false };
+const SETTINGS_DEFAULT = { pomoBig: true, pomoIdleSec: 15, pomoPlant: true, pomoBlur: false, pomoBlurLevel: 3, pomoVines: 100, pomoBranch: 100, pomoDepth: true, pomoBreakout: false, pomoVinesSpread: 30, pomoBranchSpread: 30, pomoEvenSpread: 30, pomoEven: 0, pomoVinesMode: 'fixed', pomoBranchMode: 'fixed', pomoEvenMode: 'fixed', density: 2, timerFont: 'script', idleSeconds: 'ring', pomoSurprise: false, pomoSoundFocus: 'beep', pomoSoundBreak: 'beep', pomoVolume: 60, pomoRepeat: 1 };
 const settings = () => {
   const S = { ...SETTINGS_DEFAULT, ...ls.get('settings', {}) };
   const stored = ls.get('settings', {});
@@ -84,7 +84,17 @@ function settingsPaint() {
       <div class="set-grp">
         <label class="set-row"><span>Spacing</span><input type="range" min="1" max="${DENSITY.length}" step="1" id="set-density" value="${S.density}"><span class="val" id="set-density-val">${DENSITY[S.density - 1][0]}</span></label>
       </div>` },
-    pomodoro: { label: 'Pomodoro timer', desc: 'The view the running timer switches to when you leave the page alone, and the vines around it.', html: `
+    pomodoro: { label: 'Pomodoro timer', desc: 'The sound at the end of a phase, the view the running timer switches to when you leave the page alone, and the vines around it.', html: `
+      <h3 class="set-sub">Sound<small>Played when a phase ends. Auto mode is switched in the timer window.</small></h3>
+      <div class="set-grp">
+        ${[['focus', 'Focus done', S.pomoSoundFocus], ['break', 'Break over', S.pomoSoundBreak]].map(([k, l, v]) => `
+        <div class="set-row"><span>${l}</span><select class="input set-sound" data-sound="${k}">
+          <option value="off" ${v === 'off' ? 'selected' : ''}>Off</option>
+          ${Object.entries(POMO_SOUNDS).map(([n, s]) => `<option value="${n}" ${v === n ? 'selected' : ''}>${s.label}</option>`).join('')}
+        </select><button class="btn set-play" data-play="${k}" title="Play" ${v === 'off' ? 'disabled' : ''}>▶ Test</button></div>`).join('')}
+        <label class="set-row"><span>Volume</span><input type="range" min="0" max="100" step="5" id="set-pomo-vol" value="${S.pomoVolume}"><span class="val" id="set-pomo-vol-val">${S.pomoVolume ? `${S.pomoVolume} %` : 'muted'}</span></label>
+        <label class="set-row"><span>Repeat</span><input type="range" min="1" max="5" step="1" id="set-pomo-rep" value="${S.pomoRepeat}"><span class="val" id="set-pomo-rep-val">${S.pomoRepeat}×</span></label>
+      </div>
       <h3 class="set-sub">Idle timer<small>What the running timer shows when you leave the page alone.</small></h3>
       <div class="set-grp">
         <label class="opt"><input type="checkbox" id="set-pomo-big" ${S.pomoBig ? 'checked' : ''}>
@@ -159,6 +169,14 @@ function settingsPaint() {
   on('#set-pomo-cracks', 'onchange', (e) => { setSetting('pomoBreakout', e.target.checked); plantUpdate(); });
   on('#set-pomo-surprise', 'onchange', (e) => { setSetting('pomoSurprise', e.target.checked); settingsPaint(); });
   on('#set-surprise-next', 'onclick', (e) => { const b = e.target.closest('[data-surprise]'); if (!b) return; const k = b.dataset.surprise; ls.set('surpriseNext', ls.get('surpriseNext', null) === k ? null : k); settingsPaint(); });
+  pop.querySelectorAll('.set-sound').forEach(sel => sel.onchange = () => {
+    const k = sel.dataset.sound; setSetting(k === 'break' ? 'pomoSoundBreak' : 'pomoSoundFocus', sel.value);
+    sel.blur(); settingsPaint(); pomoSound(k);
+  });
+  pop.querySelectorAll('[data-play]').forEach(b => b.onclick = () => pomoSound(b.dataset.play));
+  on('#set-pomo-vol', 'oninput', (e) => { const v = Number(e.target.value); setSetting('pomoVolume', v); $('#set-pomo-vol-val').textContent = v ? `${v} %` : 'muted'; });
+  on('#set-pomo-vol', 'onchange', () => pomoSound('focus', { repeat: 1 }));
+  on('#set-pomo-rep', 'oninput', (e) => { setSetting('pomoRepeat', Number(e.target.value)); $('#set-pomo-rep-val').textContent = `${e.target.value}×`; });
   on('#set-pomo-blur', 'onchange', (e) => { setSetting('pomoBlur', e.target.checked); settingsPaint(); });
   on('#set-pomo-blur-lvl', 'oninput', (e) => { setSetting('pomoBlurLevel', Number(e.target.value)); $('#set-pomo-blur-val').textContent = BLUR_LEVELS[e.target.value - 1]; });
   on('#set-pomo-idle', 'onchange', (e) => { setSetting('pomoIdleSec', Math.min(600, Math.max(3, Math.round(Number(e.target.value) || 15)))); settingsPaint(); });

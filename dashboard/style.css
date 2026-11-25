@@ -274,6 +274,13 @@ a.ref.done { text-decoration: line-through; opacity: .7; }
 .pp-sec { display: grid; gap: calc(10px * var(--sp)); padding-top: calc(16px * var(--sp)); border-top: 1px solid var(--line); }
 .pp-sec h4 { margin: 0; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
 .pomo-pop select { width: 100%; padding: calc(8px * var(--sp)) 10px; font-size: 14px; border-radius: 9px; }
+.pomo-auto { display: flex; align-items: flex-start; gap: 12px; cursor: pointer; font-size: 15px; font-weight: 550; padding-top: calc(16px * var(--sp)); border-top: 1px solid var(--line); }
+.pomo-auto > span { flex: 1; }
+.pomo-auto input { width: 18px; height: 18px; margin-top: 2px; flex: none; accent-color: var(--accent); }
+.pomo-auto small { display: block; color: var(--muted); font-size: 13px; font-weight: 400; margin-top: 2px; }
+.settings-pop .set-sound { padding: calc(6px * var(--sp)) 10px; font-size: 14px; border-radius: 8px; background: var(--pop-bg); }
+.settings-pop .set-play { justify-content: center; font-size: 13px; padding: calc(5px * var(--sp)) 8px; }
+.settings-pop .set-play:disabled { opacity: .4; }
 .pomo-cfg { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: calc(12px * var(--sp)) 16px; font-size: 13px; }
 .pomo-cfg label { display: grid; gap: 5px; color: var(--text); }
 .pomo-cfg .pc-in { display: flex; align-items: center; gap: 8px; }
